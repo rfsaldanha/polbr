@@ -97,6 +97,7 @@ ui <- page_navbar(
     # Sidebar
     layout_sidebar(
       sidebar = sidebar(
+        uiOutput(outputId = "update_time"),
         selectInput(
           inputId = "municipality",
           label = "Município",
@@ -189,6 +190,14 @@ server <- function(input, output, session) {
     choices = mun_names
   )
 
+  # Update time text
+  output$update_time <- renderUI({
+    res <- mun_data()
+    res <- format(min(res$date), "%d/%m/%Y %H:%M")
+
+    HTML(paste("Atualização:</br>", res))
+  })
+
   # Map
   output$map <- renderLeaflet({
     leaflet() |>
@@ -263,11 +272,11 @@ server <- function(input, output, session) {
     vline_value <- unique(res$date)[input$forecast + 1]
 
     ggplot(data = res, aes(x = date, y = value)) +
-      geom_vline(xintercept = vline_value, col = "gray70") +
+      geom_vline(xintercept = vline_value, col = "gray50") +
       geom_line(col = "red", lwd = 1) +
       ylim(c(0, NA)) +
       labs(
-        title = paste0(input$pollutant),
+        title = "PM2.5 (μg/m³)",
         x = "Data e hora",
         y = "Valor previsto"
       ) +
