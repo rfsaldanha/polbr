@@ -9,6 +9,8 @@ library(DBI)
 library(duckdb)
 library(ggplot2)
 library(terra)
+library(DT)
+library(readr)
 
 # Database connection
 con <- dbConnect(duckdb(), "data/cams_forecast.duckdb", read_only = TRUE)
@@ -37,7 +39,7 @@ ref_mun_names <- mun_seats |>
 
 # Interface
 ui <- page_navbar(
-  title = "Poluentes",
+  title = "Previsão de PM2.5",
   theme = bs_theme(bootswatch = "shiny"),
 
   # Logo
@@ -103,11 +105,6 @@ ui <- page_navbar(
           label = "Município",
           choices = NULL
         ),
-        selectInput(
-          inputId = "pollutant",
-          label = "Poluente",
-          choices = c("PM2.5")
-        ),
         sliderInput(
           inputId = "forecast",
           label = "Previsão (horas)",
@@ -115,7 +112,23 @@ ui <- page_navbar(
           max = 120,
           value = 1,
           animate = TRUE
-        )
+        ),
+        checkboxInput(
+          inputId = "trend_line",
+          label = "Linha de tendência",
+          value = TRUE
+        ),
+        checkboxInput(
+          inputId = "oms_line",
+          label = "Limite OMS",
+          value = TRUE
+        ),
+        checkboxInput(
+          inputId = "conama_line",
+          label = "Limite CONAMA",
+          value = TRUE
+        ),
+        downloadButton(outputId = "download_data", label = "Download")
       ),
 
       # Pane layout
@@ -134,7 +147,6 @@ ui <- page_navbar(
           # Graph card
           card(
             full_screen = TRUE,
-            card_header("Previsão no tempo"),
             plotOutput(outputId = "graph")
           )
         ),
@@ -142,39 +154,50 @@ ui <- page_navbar(
     )
   ),
 
-  # Graphs page
+  # Ranking page
   nav_panel(
     title = "Ranking",
 
-    layout_sidebar(
-      sidebar = sidebar(),
-      # Table card
-      card(
-        card_header("Tabela")
-      ),
+    card(
+      tabsetPanel(
+        tabPanel(
+          title = "Valores máximos",
+          DTOutput("rank_max")
+        ),
+        tabPanel(
+          title = "Horas acima de 15 μg/m³ (OMS)",
+          DTOutput(outputId = "rank_oms")
+        ),
+        tabPanel(
+          title = "Horas acima de 50 μg/m³ (CONAMA)",
+          DTOutput("rank_conama")
+        )
+      )
     )
   ),
 
   # About page
   nav_panel(
     title = "Sobre",
-    card(
-      card_header("Card title"),
-      p("Bla bla bla.")
-    ),
     accordion(
       multiple = FALSE,
       accordion_panel(
-        "Título A",
-        p("Bla bla bla.")
+        "Projeto",
+        p(
+          "Este painel tem por objetivo apresentar a previsão de concentração de material particulado de 2,5 μg/m³ (PM2.5) por município."
+        )
       ),
       accordion_panel(
-        "Título B",
-        p("Bla bla bla.")
+        "Fonte dos dados",
+        p(
+          "Os dados de projeção de PM2.5 são obtidos diariamente duas vezes por dia consultando a API do Copernicus/CAMS. Uma atualização é feita a meia-noite e outra meio-dia."
+        )
       ),
       accordion_panel(
-        "Título C",
-        p("Bla bla bla.")
+        "Método",
+        p(
+          "Em cada atualiazção de dados, a estimativa de 0 a 120 horas é obtida junto ao Copernicus/CAMS. Após o download dos dados, estes são processados e municipalizados utilizando a estatística zonal de média."
+        )
       )
     )
   )
@@ -245,22 +268,16 @@ server <- function(input, output, session) {
       addLegend(
         pal = pal,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend"
+        layerId = "legend",
+        title = paste0("PM2.5 (μg/m³)")
       )
   })
 
   # Graph
   mun_data <- reactive({
     req(input$municipality)
-    req(input$pollutant)
 
-    # Table selection
-    table_name <- NULL
-    if (input$pollutant == "PM2.5") {
-      table_name <- tb_pm25
-    }
-
-    tbl(con, table_name) |>
+    tbl(con, tb_pm25) |>
       mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
       filter(code_muni == !!input$municipality) |>
       collect()
@@ -271,16 +288,111 @@ server <- function(input, output, session) {
 
     vline_value <- unique(res$date)[input$forecast + 1]
 
-    ggplot(data = res, aes(x = date, y = value)) +
-      geom_vline(xintercept = vline_value, col = "gray50") +
+    g <- ggplot(data = res, aes(x = date, y = value)) +
       geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
       ylim(c(0, NA)) +
       labs(
-        title = "PM2.5 (μg/m³)",
+        title = "Previsão de PM2.5 (μg/m³)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atalização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Análise: LIS/ICICT/Fiocruz"
+        ),
         x = "Data e hora",
         y = "Valor previsto"
       ) +
       theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    if (input$oms_line == TRUE) {
+      g <- g +
+        geom_hline(
+          yintercept = 15,
+          # label = "Limite OMS (15 μg/m³)",
+          hjust = 0.1,
+          color = "blue",
+          linetype = "dashed"
+        )
+    }
+
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_hline(
+          yintercept = 50,
+          # label = "Limite CONAMA (50 μg/m³)",
+          hjust = 0.1,
+          color = "purple",
+          linetype = "dashed"
+        )
+    }
+
+    g
+  })
+
+  output$download_data <- downloadHandler(
+    filename = function() {
+      res <- mun_data()
+      res <- format(min(res$date), "%Y%m/%d_%H%M")
+      paste0("pm25_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data(), file)
+    }
+  )
+
+  output$rank_max <- renderDT({
+    tbl(con, tb_pm25) |>
+      group_by(code_muni) |>
+      filter(value == max(value)) |>
+      ungroup() |>
+      arrange(-value) |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      collect() |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      mutate(date = format(date, "%d/%m/%Y %H:%M")) |>
+      rename(`Município` = name_muni, `Data e hora` = date, `PM2.5` = value)
+  })
+
+  output$rank_oms <- renderDT({
+    tbl(con, tb_pm25) |>
+      mutate(ref = ifelse(value > 15, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      collect() |>
+      arrange(-freq) |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
+  })
+
+  output$rank_conama <- renderDT({
+    tbl(con, tb_pm25) |>
+      mutate(ref = ifelse(value > 50, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      collect() |>
+      arrange(-freq) |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
   })
 }
 
