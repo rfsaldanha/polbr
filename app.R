@@ -1,5 +1,6 @@
 # Packages
 library(shiny)
+library(shinyWidgets)
 library(bslib)
 library(dplyr)
 library(lubridate)
@@ -8,6 +9,7 @@ library(leaflet)
 library(DBI)
 library(duckdb)
 library(ggplot2)
+library(geomtextpath)
 library(terra)
 library(DT)
 library(readr)
@@ -100,7 +102,7 @@ ui <- page_navbar(
     layout_sidebar(
       sidebar = sidebar(
         uiOutput(outputId = "update_time"),
-        selectInput(
+        pickerInput(
           inputId = "municipality",
           label = "Município",
           choices = NULL
@@ -110,9 +112,10 @@ ui <- page_navbar(
           label = "Previsão (horas)",
           min = 0,
           max = 120,
-          value = 1,
+          value = 24,
           animate = TRUE
         ),
+        uiOutput(outputId = "forecast_time"),
         checkboxInput(
           inputId = "trend_line",
           label = "Linha de tendência",
@@ -206,11 +209,12 @@ ui <- page_navbar(
 # Server
 server <- function(input, output, session) {
   # Update municipality selector
-  updateSelectizeInput(
+  updatePickerInput(
     session = session,
-    server = TRUE,
+    # server = TRUE,
     inputId = "municipality",
-    choices = mun_names
+    choices = mun_names,
+    options = pickerOptions(container = "body", liveSearch = TRUE)
   )
 
   # Update time text
@@ -221,30 +225,45 @@ server <- function(input, output, session) {
     HTML(paste("Atualização:</br>", res))
   })
 
+  # Update forecast time
+  output$forecast_time <- renderUI({
+    res <- mun_data()
+    forecast_date <- unique(res$date)[input$forecast + 1]
+    forecast_date <- format(forecast_date, "%d/%m/%Y %H:%M")
+
+    HTML(paste0("<em>", forecast_date), "</em>")
+  })
+
   # Map
   output$map <- renderLeaflet({
     leaflet() |>
       addTiles() |>
-      fitBounds(-118.47, 33.28, -34.1, -56.65)
+      fitBounds(-118, 33, -30, -56)
     # c(33.28, -118.47, -56.65, -34.1),
   })
 
+  # Update municipality marker on map
   observeEvent(input$municipality, {
     req(input$municipality)
 
+    # Remove old layer
     leafletProxy("map", session) |>
       removeMarker(layerId = "mun_marker")
 
+    # Municipality coordinates
     coord <- mun_seats |>
       filter(code_muni == input$municipality) |>
       st_coordinates() |>
       as.vector()
 
+    # Update map
     leafletProxy("map", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
   })
 
+  # Update raster and date text on map
   observeEvent(input$forecast, {
+    # Palette
     mm <- minmax(rst_pm25)
     pal <- colorNumeric(
       palette = "Spectral",
@@ -252,12 +271,16 @@ server <- function(input, output, session) {
       reverse = TRUE
     )
 
+    # Remove old layers
     leafletProxy("map", session) |>
       removeImage(layerId = "raster") |>
-      removeControl(layerId = "legend")
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
 
+    # Depth (forecast)
     depth <- input$forecast + 1
 
+    # Update map
     leafletProxy("map", session) |>
       addRasterImage(
         x = rst_pm25[[depth]],
@@ -270,6 +293,11 @@ server <- function(input, output, session) {
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("PM2.5 (μg/m³)")
+      ) |>
+      addControl(
+        HTML("aaa"),
+        position = "bottomleft",
+        layerId = "title"
       )
   })
 
@@ -280,7 +308,8 @@ server <- function(input, output, session) {
     tbl(con, tb_pm25) |>
       mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
       filter(code_muni == !!input$municipality) |>
-      collect()
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
   })
 
   output$graph <- renderPlot({
@@ -292,12 +321,13 @@ server <- function(input, output, session) {
       geom_line(col = "red", lwd = 1) +
       geom_vline(xintercept = vline_value, col = "gray50") +
       ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
       labs(
         title = "Previsão de PM2.5 (μg/m³)",
         subtitle = paste0(names(mun_names[mun_names == input$municipality])),
         caption = paste0(
           "Previsão atmosférica: Copernicus/CAMS\n",
-          "Atalização: ",
+          "Atualização: ",
           format(min(res$date), "%d/%m/%Y %H:%M"),
           "\n",
           "Análise: LIS/ICICT/Fiocruz"
@@ -314,9 +344,9 @@ server <- function(input, output, session) {
 
     if (input$oms_line == TRUE) {
       g <- g +
-        geom_hline(
+        geom_texthline(
           yintercept = 15,
-          # label = "Limite OMS (15 μg/m³)",
+          label = "Limite OMS (15 μg/m³)",
           hjust = 0.1,
           color = "blue",
           linetype = "dashed"
@@ -325,9 +355,9 @@ server <- function(input, output, session) {
 
     if (input$conama_line == TRUE) {
       g <- g +
-        geom_hline(
+        geom_texthline(
           yintercept = 50,
-          # label = "Limite CONAMA (50 μg/m³)",
+          label = "Limite CONAMA (50 μg/m³)",
           hjust = 0.1,
           color = "purple",
           linetype = "dashed"
@@ -340,7 +370,7 @@ server <- function(input, output, session) {
   output$download_data <- downloadHandler(
     filename = function() {
       res <- mun_data()
-      res <- format(min(res$date), "%Y%m/%d_%H%M")
+      res <- format(min(res$date), "%Y%m/%d/%H%M")
       paste0("pm25_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
