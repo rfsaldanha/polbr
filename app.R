@@ -265,10 +265,11 @@ server <- function(input, output, session) {
   observeEvent(input$forecast, {
     # Palette
     mm <- minmax(rst_pm25)
-    pal <- colorNumeric(
-      palette = "Spectral",
-      domain = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-      reverse = TRUE
+    pal <- colorBin(
+      palette = "YlOrRd",
+      bins = c(15, 30, 50, 100, 200, 300, 500, Inf),
+      na.color = NA,
+      reverse = FALSE
     )
 
     # Remove old layers
