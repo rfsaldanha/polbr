@@ -15,14 +15,19 @@ library(DT)
 library(readr)
 
 # Database connection
-con <- dbConnect(duckdb(), "data/cams_forecast.duckdb", read_only = TRUE)
+con <- dbConnect(
+  duckdb(),
+  "/dados/home/rfsaldanha/camsdata/cams_forecast.duckdb",
+  read_only = TRUE
+)
 
 # Table
 tb_pm25 <- "pm25_mun_forecast"
 
 # Forecast raster
-rst_pm25 <- rast("data/cams_forecast_pm25.nc") * 1000000000
-rst_pm25 <- project(x = rst_pm25, "EPSG:4326")
+rst_pm25 <- rast("/dados/home/rfsaldanha/camsdata/cams_forecast_pm25.nc") *
+  1000000000
+rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
 
 # Read municipality data
 mun_seats <- readRDS("data/mun_seats.rds")
@@ -168,11 +173,11 @@ ui <- page_navbar(
           DTOutput("rank_max")
         ),
         tabPanel(
-          title = "Horas acima de 15 μg/m³ (OMS)",
+          title = "Horas acumuladas acima de 15 μg/m³ (OMS)",
           DTOutput(outputId = "rank_oms")
         ),
         tabPanel(
-          title = "Horas acima de 50 μg/m³ (CONAMA)",
+          title = "Horas acumuladas acima de 50 μg/m³ (CONAMA)",
           DTOutput("rank_conama")
         )
       )
@@ -237,9 +242,13 @@ server <- function(input, output, session) {
   # Map
   output$map <- renderLeaflet({
     leaflet() |>
-      addTiles() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
       fitBounds(-118, 33, -30, -56)
-    # c(33.28, -118.47, -56.65, -34.1),
+    # c(33.28, -118.47, -56.65, -34.1)
   })
 
   # Update municipality marker on map
@@ -287,7 +296,9 @@ server <- function(input, output, session) {
         x = rst_pm25[[depth]],
         opacity = .7,
         colors = pal,
-        layerId = "raster"
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
       ) |>
       addLegend(
         pal = pal,
@@ -295,10 +306,17 @@ server <- function(input, output, session) {
         layerId = "legend",
         title = paste0("PM2.5 (μg/m³)")
       ) |>
-      addControl(
-        HTML("aaa"),
-        position = "bottomleft",
-        layerId = "title"
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
       )
   })
 
@@ -347,7 +365,7 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 15,
-          label = "Limite OMS (15 μg/m³)",
+          label = "OMS",
           hjust = 0.1,
           color = "blue",
           linetype = "dashed"
@@ -358,9 +376,9 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 50,
-          label = "Limite CONAMA (50 μg/m³)",
+          label = "CONAMA",
           hjust = 0.1,
-          color = "purple",
+          color = "blue",
           linetype = "dashed"
         )
     }
