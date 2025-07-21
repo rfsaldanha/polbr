@@ -389,7 +389,7 @@ server <- function(input, output, session) {
   output$download_data <- downloadHandler(
     filename = function() {
       res <- mun_data()
-      res <- format(min(res$date), "%Y%m/%d/%H%M")
+      res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("pm25_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
