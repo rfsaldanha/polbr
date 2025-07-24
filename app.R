@@ -15,9 +15,14 @@ library(DT)
 library(readr)
 
 # Database connection
+# con <- dbConnect(
+#   duckdb(),
+#   "/dados/home/rfsaldanha/camsdata/cams_forecast.duckdb",
+#   read_only = TRUE
+# )
 con <- dbConnect(
   duckdb(),
-  "/dados/home/rfsaldanha/camsdata/cams_forecast.duckdb",
+  "cams_forecast.duckdb",
   read_only = TRUE
 )
 
@@ -25,7 +30,9 @@ con <- dbConnect(
 tb_pm25 <- "pm25_mun_forecast"
 
 # Forecast raster
-rst_pm25 <- rast("/dados/home/rfsaldanha/camsdata/cams_forecast_pm25.nc") *
+# rst_pm25 <- rast("/dados/home/rfsaldanha/camsdata/cams_forecast_pm25.nc") *
+#   1000000000
+rst_pm25 <- rast("data/cams_forecast_pm25.nc") *
   1000000000
 rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
 
@@ -46,7 +53,7 @@ ref_mun_names <- mun_seats |>
 
 # Interface
 ui <- page_navbar(
-  title = "Previsão de PM2.5",
+  title = "Previsão de poluentes atmosféricos",
   theme = bs_theme(bootswatch = "shiny"),
 
   # Logo
@@ -99,65 +106,84 @@ ui <- page_navbar(
     )
   ),
 
-  # Map page
+  sidebar = sidebar(
+    uiOutput(outputId = "update_time"),
+    pickerInput(
+      inputId = "municipality",
+      label = "Município",
+      choices = NULL
+    ),
+    sliderInput(
+      inputId = "forecast",
+      label = "Previsão (horas)",
+      min = 0,
+      max = 120,
+      value = 24,
+      animate = TRUE
+    ),
+    uiOutput(outputId = "forecast_time"),
+    checkboxInput(
+      inputId = "trend_line",
+      label = "Linha de tendência",
+      value = TRUE
+    ),
+    checkboxInput(
+      inputId = "oms_line",
+      label = "Limite OMS",
+      value = TRUE
+    ),
+    checkboxInput(
+      inputId = "conama_line",
+      label = "Limite CONAMA",
+      value = TRUE
+    ),
+    downloadButton(outputId = "download_data", label = "Download")
+  ),
+
+  # PM2.5
   nav_panel(
-    title = "Início",
-
-    # Sidebar
-    layout_sidebar(
-      sidebar = sidebar(
-        uiOutput(outputId = "update_time"),
-        pickerInput(
-          inputId = "municipality",
-          label = "Município",
-          choices = NULL
-        ),
-        sliderInput(
-          inputId = "forecast",
-          label = "Previsão (horas)",
-          min = 0,
-          max = 120,
-          value = 24,
-          animate = TRUE
-        ),
-        uiOutput(outputId = "forecast_time"),
-        checkboxInput(
-          inputId = "trend_line",
-          label = "Linha de tendência",
-          value = TRUE
-        ),
-        checkboxInput(
-          inputId = "oms_line",
-          label = "Limite OMS",
-          value = TRUE
-        ),
-        checkboxInput(
-          inputId = "conama_line",
-          label = "Limite CONAMA",
-          value = TRUE
-        ),
-        downloadButton(outputId = "download_data", label = "Download")
-      ),
-
-      # Pane layout
-      page_fillable(
-        layout_columns(
-          col_widths = c(6, 6),
-          # Map card
-          card(
-            full_screen = TRUE,
-            card_body(
-              class = "p-0", # Fill card, used for maps
-              leafletOutput(outputId = "map")
-            )
-          ),
-
-          # Graph card
-          card(
-            full_screen = TRUE,
-            plotOutput(outputId = "graph")
+    title = "PM2.5",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_pm25")
           )
         ),
+
+        # Graph card
+        card(
+          full_screen = TRUE,
+          plotOutput(outputId = "graph_pm25")
+        )
+      )
+    )
+  ),
+
+  # O3
+  nav_panel(
+    title = "O3",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_o3")
+          )
+        ),
+
+        # Graph card
+        card(
+          full_screen = TRUE,
+          plotOutput(outputId = "graph_o3")
+        )
       )
     )
   ),
@@ -224,7 +250,7 @@ server <- function(input, output, session) {
 
   # Update time text
   output$update_time <- renderUI({
-    res <- mun_data()
+    res <- mun_data_pm25()
     res <- format(min(res$date), "%d/%m/%Y %H:%M")
 
     HTML(paste("Atualização:</br>", res))
@@ -232,15 +258,15 @@ server <- function(input, output, session) {
 
   # Update forecast time
   output$forecast_time <- renderUI({
-    res <- mun_data()
+    res <- mun_data_pm25()
     forecast_date <- unique(res$date)[input$forecast + 1]
     forecast_date <- format(forecast_date, "%d/%m/%Y %H:%M")
 
     HTML(paste0("<em>", forecast_date), "</em>")
   })
 
-  # Map
-  output$map <- renderLeaflet({
+  # Map PM2.5
+  output$map_pm25 <- renderLeaflet({
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
@@ -251,12 +277,12 @@ server <- function(input, output, session) {
     # c(33.28, -118.47, -56.65, -34.1)
   })
 
-  # Update municipality marker on map
+  # Update municipality marker on map pm25
   observeEvent(input$municipality, {
     req(input$municipality)
 
     # Remove old layer
-    leafletProxy("map", session) |>
+    leafletProxy("map_pm25", session) |>
       removeMarker(layerId = "mun_marker")
 
     # Municipality coordinates
@@ -266,7 +292,7 @@ server <- function(input, output, session) {
       as.vector()
 
     # Update map
-    leafletProxy("map", session) |>
+    leafletProxy("map_pm25", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
   })
 
@@ -282,7 +308,7 @@ server <- function(input, output, session) {
     )
 
     # Remove old layers
-    leafletProxy("map", session) |>
+    leafletProxy("map_pm25", session) |>
       removeImage(layerId = "raster") |>
       removeControl(layerId = "legend") |>
       removeControl(layerId = "title")
@@ -291,7 +317,7 @@ server <- function(input, output, session) {
     depth <- input$forecast + 1
 
     # Update map
-    leafletProxy("map", session) |>
+    leafletProxy("map_pm25", session) |>
       addRasterImage(
         x = rst_pm25[[depth]],
         opacity = .7,
@@ -321,7 +347,7 @@ server <- function(input, output, session) {
   })
 
   # Graph
-  mun_data <- reactive({
+  mun_data_pm25 <- reactive({
     req(input$municipality)
 
     tbl(con, tb_pm25) |>
@@ -331,8 +357,8 @@ server <- function(input, output, session) {
       mutate(date = with_tz(date, "America/Sao_Paulo"))
   })
 
-  output$graph <- renderPlot({
-    res <- mun_data()
+  output$graph_pm25 <- renderPlot({
+    res <- mun_data_pm25()
 
     vline_value <- unique(res$date)[input$forecast + 1]
 
@@ -388,12 +414,12 @@ server <- function(input, output, session) {
 
   output$download_data <- downloadHandler(
     filename = function() {
-      res <- mun_data()
+      res <- mun_data_pm25()
       res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("pm25_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data(), file)
+      write_csv2(mun_data_pm25(), file)
     }
   )
 
