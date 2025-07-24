@@ -142,7 +142,7 @@ ui <- page_navbar(
 
   # PM2.5
   nav_panel(
-    title = "PM2.5",
+    title = "PM 2.5",
     page_fillable(
       layout_columns(
         col_widths = c(6, 6),
@@ -166,7 +166,7 @@ ui <- page_navbar(
 
   # O3
   nav_panel(
-    title = "O3",
+    title = "Ozônio (O3)",
     page_fillable(
       layout_columns(
         col_widths = c(6, 6),
