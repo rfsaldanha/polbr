@@ -34,17 +34,25 @@ tb_temp <- "temp_mun_forecast"
 tb_uv <- "uv_mun_forecast"
 
 # Read forecast rasters
-# rst_pm25 <- rast("/dados/home/rfsaldanha/camsdata/cams_forecast_pm25.nc") *
-#   1000000000 # kg/m3 to μg/m3
-rst_pm25 <- rast("data/cams_forecast_pm25.nc") *
+rst_pm25 <- rast(
+  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_pm25.nc"
+) *
   1000000000 # kg/m3 to μg/m3
 rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
-rst_o3 <- rast("data/cams_forecast_o3.nc") *
+rst_o3 <- rast(
+  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_o3.nc"
+) *
   44698 # kg/m2 to DU
 rst_o3 <- project(x = rst_o3, "EPSG:3857")
-rst_temp <- rast("data/cams_forecast_temp.nc") - 272.15 # K to °C
+rst_temp <- rast(
+  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_temp.nc"
+) -
+  272.15 # K to °C
 rst_temp <- project(x = rst_temp, "EPSG:3857")
-rst_uv <- rast("data/cams_forecast_uv.nc") * 40 # Wm2 to UVI
+rst_uv <- rast(
+  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_uv.nc"
+) *
+  40 # Wm2 to UVI
 rst_uv <- project(x = rst_uv, "EPSG:3857")
 
 # Read municipality data
