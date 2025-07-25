@@ -16,16 +16,16 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Database connection
-# con <- dbConnect(
-#   duckdb(),
-#   "/dados/home/rfsaldanha/camsdata/cams_forecast.duckdb",
-#   read_only = TRUE
-# )
 con <- dbConnect(
   duckdb(),
-  "data/cams_forecast.duckdb",
+  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast.duckdb",
   read_only = TRUE
 )
+# con <- dbConnect(
+#   duckdb(),
+#   "data/cams_forecast.duckdb",
+#   read_only = TRUE
+# )
 
 # Table
 tb_pm25 <- "pm25_mun_forecast"
