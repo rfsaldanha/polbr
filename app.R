@@ -22,14 +22,15 @@ library(readr)
 # )
 con <- dbConnect(
   duckdb(),
-  "cams_forecast.duckdb",
+  "data/cams_forecast.duckdb",
   read_only = TRUE
 )
 
 # Table
 tb_pm25 <- "pm25_mun_forecast"
+tb_o3 <- "o3_mun_forecast"
 
-# Forecast rasters
+# Read forecast rasters
 # rst_pm25 <- rast("/dados/home/rfsaldanha/camsdata/cams_forecast_pm25.nc") *
 #   1000000000 # kg/m3 to μg/m3
 rst_pm25 <- rast("data/cams_forecast_pm25.nc") *
@@ -473,54 +474,6 @@ server <- function(input, output, session) {
     }
   )
 
-  # Alerts
-  output$rank_max <- renderDT({
-    tbl(con, tb_pm25) |>
-      group_by(code_muni) |>
-      filter(value == max(value)) |>
-      ungroup() |>
-      arrange(-value) |>
-      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
-      left_join(ref_mun_names) |>
-      select(-code_muni) |>
-      relocate(name_muni) |>
-      mutate(date = format(date, "%d/%m/%Y %H:%M")) |>
-      rename(`Município` = name_muni, `Data e hora` = date, `PM2.5` = value)
-  })
-
-  output$rank_oms <- renderDT({
-    tbl(con, tb_pm25) |>
-      mutate(ref = ifelse(value > 15, TRUE, FALSE)) |>
-      filter(ref == TRUE) |>
-      group_by(code_muni) |>
-      summarise(freq = n()) |>
-      ungroup() |>
-      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
-      arrange(-freq) |>
-      left_join(ref_mun_names) |>
-      select(-code_muni) |>
-      relocate(name_muni) |>
-      rename(`Município` = name_muni, `Horas` = freq)
-  })
-
-  output$rank_conama <- renderDT({
-    tbl(con, tb_pm25) |>
-      mutate(ref = ifelse(value > 50, TRUE, FALSE)) |>
-      filter(ref == TRUE) |>
-      group_by(code_muni) |>
-      summarise(freq = n()) |>
-      ungroup() |>
-      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
-      arrange(-freq) |>
-      left_join(ref_mun_names) |>
-      select(-code_muni) |>
-      relocate(name_muni) |>
-      rename(`Município` = name_muni, `Horas` = freq)
-  })
-
   # Map O3 initial state
   output$map_o3 <- renderLeaflet({
     req(input$municipality)
@@ -646,6 +599,98 @@ server <- function(input, output, session) {
           position = "bottomleft"
         )
       )
+  })
+
+  # Graph o3
+  mun_data_o3 <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_o3) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_o3 <- renderPlot({
+    res <- mun_data_o3()
+
+    vline_value <- unique(res$date)[input$forecast + 1]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(100, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Previsão de O3 (DU)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Análise: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    g
+  })
+
+  # Alerts
+  output$rank_max <- renderDT({
+    tbl(con, tb_pm25) |>
+      group_by(code_muni) |>
+      filter(value == max(value)) |>
+      ungroup() |>
+      arrange(-value) |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      collect() |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      mutate(date = format(date, "%d/%m/%Y %H:%M")) |>
+      rename(`Município` = name_muni, `Data e hora` = date, `PM2.5` = value)
+  })
+
+  output$rank_oms <- renderDT({
+    tbl(con, tb_pm25) |>
+      mutate(ref = ifelse(value > 15, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      collect() |>
+      arrange(-freq) |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
+  })
+
+  output$rank_conama <- renderDT({
+    tbl(con, tb_pm25) |>
+      mutate(ref = ifelse(value > 50, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      collect() |>
+      arrange(-freq) |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
   })
 }
 
