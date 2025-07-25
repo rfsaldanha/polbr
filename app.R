@@ -29,12 +29,15 @@ con <- dbConnect(
 # Table
 tb_pm25 <- "pm25_mun_forecast"
 
-# Forecast raster
+# Forecast rasters
 # rst_pm25 <- rast("/dados/home/rfsaldanha/camsdata/cams_forecast_pm25.nc") *
-#   1000000000
+#   1000000000 # kg/m3 to μg/m3
 rst_pm25 <- rast("data/cams_forecast_pm25.nc") *
-  1000000000
+  1000000000 # kg/m3 to μg/m3
 rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
+rst_o3 <- rast("data/cams_forecast_o3.nc") *
+  44698 # kg/m2 to DU
+rst_o3 <- project(x = rst_o3, "EPSG:3857")
 
 # Read municipality data
 mun_seats <- readRDS("data/mun_seats.rds")
@@ -188,9 +191,9 @@ ui <- page_navbar(
     )
   ),
 
-  # Ranking page
+  # Alerts page
   nav_panel(
-    title = "Ranking",
+    title = "Alertas",
 
     card(
       tabsetPanel(
@@ -265,16 +268,62 @@ server <- function(input, output, session) {
     HTML(paste0("<em>", forecast_date), "</em>")
   })
 
-  # Map PM2.5
+  # Map PM2.5 initial state
   output$map_pm25 <- renderLeaflet({
+    req(input$municipality)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_pm25)
+    pal <- colorBin(
+      palette = "YlOrRd",
+      bins = c(15, 30, 50, 100, 200, 300, 500, Inf),
+      na.color = NA,
+      reverse = FALSE
+    )
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56)
-    # c(33.28, -118.47, -56.65, -34.1)
+      fitBounds(-118, 33, -30, -56) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_pm25[[depth]],
+        opacity = .7,
+        colors = pal,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("PM2.5 (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
   })
 
   # Update municipality marker on map pm25
@@ -346,7 +395,7 @@ server <- function(input, output, session) {
       )
   })
 
-  # Graph
+  # Graph pm25
   mun_data_pm25 <- reactive({
     req(input$municipality)
 
@@ -412,6 +461,7 @@ server <- function(input, output, session) {
     g
   })
 
+  # Download pm25
   output$download_data <- downloadHandler(
     filename = function() {
       res <- mun_data_pm25()
@@ -423,6 +473,7 @@ server <- function(input, output, session) {
     }
   )
 
+  # Alerts
   output$rank_max <- renderDT({
     tbl(con, tb_pm25) |>
       group_by(code_muni) |>
@@ -468,6 +519,133 @@ server <- function(input, output, session) {
       select(-code_muni) |>
       relocate(name_muni) |>
       rename(`Município` = name_muni, `Horas` = freq)
+  })
+
+  # Map O3 initial state
+  output$map_o3 <- renderLeaflet({
+    req(input$municipality)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_o3)
+    pal <- colorBin(
+      palette = "RdPu",
+      bins = c(100, 150, 200, 250, 300, 350, 400, Inf),
+      na.color = NA,
+      reverse = FALSE
+    )
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-118, 33, -30, -56) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_o3[[depth]],
+        opacity = .7,
+        colors = pal,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("O3 (DU)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map o3
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_o3", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_o3", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_o3)
+    pal <- colorBin(
+      palette = "RdPu",
+      bins = c(100, 150, 200, 250, 300, 350, 400, Inf),
+      na.color = NA,
+      reverse = FALSE
+    )
+
+    # Remove old layers
+    leafletProxy("map_o3", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    # Update map
+    leafletProxy("map_o3", session) |>
+      addRasterImage(
+        x = rst_o3[[depth]],
+        opacity = .7,
+        colors = pal,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("O3 (DU)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
   })
 }
 
