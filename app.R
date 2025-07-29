@@ -317,7 +317,7 @@ ui <- page_navbar(
           accordion_panel(
             "Descrição",
             HTML(
-              "A coluna de ozônio representa a quantidade total de ozônio presente na atmosfera, medida verticalmente desde a superfície até a estratosfera, geralmente expressa em unidades Dobson (DU). O ozônio estratosférico atua como um filtro natural que absorve a maior parte da radiação ultravioleta B (UV-B) proveniente do sol, protegendo  dos efeitos nocivos dessa radiação. A redução na espessura da coluna de ozônio, como ocorre em regiões afetadas pelo buraco na camada de ozônio, está associada ao aumento da incidência de câncer de pele, catarata e outros problemas de saúde relacionados à exposição à radiação UV. O monitoramento da coluna de ozônio permite avaliar o nível de proteção natural contra a radiação ultravioleta, subsidiando políticas públicas de proteção ambiental e campanhas de prevenção à saúde."
+              "O ozônio ao nível do solo (ozônio troposférico) é um poluente. Diferente do ozônio estratosférico, que é benéfico para a redução do aquecimento global, o ozônio troposférico é prejudicial à saúde humana e ao meio ambiente. Em saúde pública, sua concentração elevada está associada a uma série de efeitos adversos, especialmente respiratórios e cardiovasculares.  O monitoramento do ozônio ao nível do solo é fundamental para a emissão de alertas de qualidade do ar, subsidiando políticas de controle da poluição atmosférica e estratégias preventivas voltadas à proteção da saúde da população exposta, especialmente em áreas urbanas e industrializadas."
             )
           )
         )
@@ -1044,7 +1044,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_o3)
     pal <- colorBin(
       palette = "RdPu",
-      bins = c(0, 20, 40, 60, 80, 100, Inf),
+      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
       na.color = NA,
       reverse = FALSE
     )
@@ -1073,7 +1073,7 @@ server <- function(input, output, session) {
         pal = pal,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
-        title = paste0("O3 (DU)")
+        title = paste0("O3 (μg/m³)")
       ) |>
       # Layers control
       addLayersControl(
@@ -1114,7 +1114,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_o3)
     pal <- colorBin(
       palette = "RdPu",
-      bins = c(0, 20, 40, 60, 80, 100, Inf),
+      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
       na.color = NA,
       reverse = FALSE
     )
@@ -1142,7 +1142,7 @@ server <- function(input, output, session) {
         pal = pal,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
-        title = paste0("O3 (DU)")
+        title = paste0("O3 (μg/m³)")
       ) |>
       # Layers control
       addLayersControl(
@@ -1180,7 +1180,7 @@ server <- function(input, output, session) {
       ylim(c(0, NA)) +
       scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
       labs(
-        title = "Previsão de O3 (DU)",
+        title = "Previsão de O3 (μg/m³)",
         subtitle = paste0(names(mun_names[mun_names == input$municipality])),
         caption = paste0(
           "Previsão atmosférica: Copernicus/CAMS\n",
