@@ -1,6 +1,7 @@
 # Packages
 library(shiny)
 library(shinyWidgets)
+library(fs)
 library(bslib)
 library(dplyr)
 library(lubridate)
@@ -15,10 +16,14 @@ library(DT)
 library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
+# Data dir
+# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+data_dir <- path("data/")
+
 # Database connection
 con <- dbConnect(
   duckdb(),
-  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast.duckdb",
+  path(data_dir, "cams_forecast.duckdb"),
   read_only = TRUE
 )
 # con <- dbConnect(
@@ -35,22 +40,22 @@ tb_uv <- "uv_mun_forecast"
 
 # Read forecast rasters
 rst_pm25 <- rast(
-  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_pm25.nc"
+  path(data_dir, "cams_forecast_pm25.nc")
 ) *
   1000000000 # kg/m3 to μg/m3
 rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
 rst_o3 <- rast(
-  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_o3.nc"
+  path(data_dir, "cams_forecast_o3.nc")
 ) *
   44698 # kg/m2 to DU
 rst_o3 <- project(x = rst_o3, "EPSG:3857")
 rst_temp <- rast(
-  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_temp.nc"
+  path(data_dir, "cams_forecast_temp.nc")
 ) -
   272.15 # K to °C
 rst_temp <- project(x = rst_temp, "EPSG:3857")
 rst_uv <- rast(
-  "/dados/home/rfsaldanha/camsdata/forecast_data/cams_forecast_uv.nc"
+  path(data_dir, "cams_forecast_uv.nc")
 ) *
   40 # Wm2 to UVI
 rst_uv <- project(x = rst_uv, "EPSG:3857")
@@ -69,6 +74,9 @@ ref_mun_names <- mun_seats |>
   mutate(name_muni = paste(name_muni, "-", abbrev_state)) |>
   select(-abbrev_state) |>
   as_tibble()
+
+# bdqueimadas data
+bdq_focos <- readRDS(file = path(data_dir, "bdq_focos.rds"))
 
 # Interface
 ui <- page_navbar(
@@ -474,6 +482,15 @@ server <- function(input, output, session) {
       ) |>
       fitBounds(-118, 33, -30, -56) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addCircleMarkers(
+        lng = bdq_focos$lon,
+        lat = bdq_focos$lat,
+        fillColor = "firebrick",
+        fillOpacity = .5,
+        radius = 4,
+        stroke = FALSE,
+        group = "INPE/BDQueimadas"
+      ) |>
       addRasterImage(
         x = rst_pm25[[depth]],
         opacity = .7,
@@ -494,7 +511,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster"),
+        overlayGroups = c("raster", "INPE/BDQueimadas"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
@@ -563,7 +580,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster"),
+        overlayGroups = c("raster", "INPE/BDQueimadas"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
