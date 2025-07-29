@@ -17,8 +17,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-# data_dir <- path("data/")
+# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+data_dir <- path("data/")
 
 # Database connection
 con <- dbConnect(
@@ -47,7 +47,9 @@ rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
 rst_o3 <- rast(
   path(data_dir, "cams_forecast_o3.nc")
 ) *
-  44698 # kg/m2 to DU
+  28.9644 /
+  47.9982 *
+  1e9 # # kg/kg to μg/m3
 rst_o3 <- project(x = rst_o3, "EPSG:3857")
 rst_temp <- rast(
   path(data_dir, "cams_forecast_temp.nc")
@@ -145,6 +147,7 @@ ui <- page_navbar(
       label = "Previsão (horas)",
       min = 0,
       max = 120,
+      step = 3,
       value = 24,
       animate = TRUE
     ),
@@ -1041,13 +1044,14 @@ server <- function(input, output, session) {
     mm <- minmax(rst_o3)
     pal <- colorBin(
       palette = "RdPu",
-      bins = c(100, 150, 200, 250, 300, 350, 400, Inf),
+      bins = c(0, 20, 40, 60, 80, 100, Inf),
       na.color = NA,
       reverse = FALSE
     )
 
     # Depth (forecast)
-    depth <- input$forecast + 1
+    depth <- (input$forecast + 1 + 2) / 3
+    print(depth)
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -1110,7 +1114,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_o3)
     pal <- colorBin(
       palette = "RdPu",
-      bins = c(100, 150, 200, 250, 300, 350, 400, Inf),
+      bins = c(0, 20, 40, 60, 80, 100, Inf),
       na.color = NA,
       reverse = FALSE
     )
@@ -1122,7 +1126,7 @@ server <- function(input, output, session) {
       removeControl(layerId = "title")
 
     # Depth (forecast)
-    depth <- input$forecast + 1
+    depth <- (input$forecast + 1 + 2) / 3
 
     # Update map
     leafletProxy("map_o3", session) |>
@@ -1173,7 +1177,7 @@ server <- function(input, output, session) {
     g <- ggplot(data = res, aes(x = date, y = value)) +
       geom_line(col = "red", lwd = 1) +
       geom_vline(xintercept = vline_value, col = "gray50") +
-      ylim(c(200, NA)) +
+      ylim(c(0, NA)) +
       scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
       labs(
         title = "Previsão de O3 (DU)",
