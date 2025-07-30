@@ -17,8 +17,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-# data_dir <- path("data/")
+# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+data_dir <- path("data/")
 
 # Database connection
 con <- dbConnect(
@@ -26,11 +26,6 @@ con <- dbConnect(
   path(data_dir, "cams_forecast.duckdb"),
   read_only = TRUE
 )
-# con <- dbConnect(
-#   duckdb(),
-#   "data/cams_forecast.duckdb",
-#   read_only = TRUE
-# )
 
 # Table
 tb_pm25 <- "pm25_mun_forecast"
@@ -44,6 +39,7 @@ rst_pm25 <- rast(
 ) *
   1000000000 # kg/m3 to μg/m3
 rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
+
 rst_o3 <- rast(
   path(data_dir, "cams_forecast_o3.nc")
 ) *
@@ -51,11 +47,13 @@ rst_o3 <- rast(
   47.9982 *
   1e9 # # kg/kg to μg/m3
 rst_o3 <- project(x = rst_o3, "EPSG:3857")
+
 rst_temp <- rast(
   path(data_dir, "cams_forecast_temp.nc")
 ) -
   272.15 # K to °C
 rst_temp <- project(x = rst_temp, "EPSG:3857")
+
 rst_uv <- rast(
   path(data_dir, "cams_forecast_uv.nc")
 ) *
@@ -1172,7 +1170,7 @@ server <- function(input, output, session) {
   output$graph_o3 <- renderPlot({
     res <- mun_data_o3()
 
-    vline_value <- unique(res$date)[input$forecast + 1]
+    vline_value <- unique(res$date)[(input$forecast + 1 + 2) / 3]
 
     g <- ggplot(data = res, aes(x = date, y = value)) +
       geom_line(col = "red", lwd = 1) +
