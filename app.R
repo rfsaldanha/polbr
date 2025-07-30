@@ -30,34 +30,26 @@ con <- dbConnect(
 # Table
 tb_pm25 <- "pm25_mun_forecast"
 tb_o3 <- "o3_mun_forecast"
+tb_co <- "co_mun_forecast"
 tb_temp <- "temp_mun_forecast"
 tb_uv <- "uv_mun_forecast"
 
+# teste <- o3[[1]]*(sp[[1]]/(260.2*temp[[1]]))*1e9
+
 # Read forecast rasters
-rst_pm25 <- rast(
-  path(data_dir, "cams_forecast_pm25.nc")
-) *
-  1000000000 # kg/m3 to μg/m3
+rst_pm25 <- rast(path(data_dir, "cams_forecast_pm25.nc")) * 1e9 # kg/m3 to μg/m3
 rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
 
-rst_o3 <- rast(
-  path(data_dir, "cams_forecast_o3.nc")
-) *
-  28.9644 /
-  47.9982 *
-  1e9 # # kg/kg to μg/m3
+rst_o3 <- rast(path(data_dir, "cams_forecast_o3.nc")) * 1e9 # kg/m3 to μg/m3
 rst_o3 <- project(x = rst_o3, "EPSG:3857")
 
-rst_temp <- rast(
-  path(data_dir, "cams_forecast_temp.nc")
-) -
-  272.15 # K to °C
+rst_co <- rast(path(data_dir, "cams_forecast_co.nc")) * 1e9 # # kg/m3 to μg/m3
+rst_co <- project(x = rst_co, "EPSG:3857")
+
+rst_temp <- rast(path(data_dir, "cams_forecast_temp.nc")) - 272.15 # K to °C
 rst_temp <- project(x = rst_temp, "EPSG:3857")
 
-rst_uv <- rast(
-  path(data_dir, "cams_forecast_uv.nc")
-) *
-  40 # Wm2 to UVI
+rst_uv <- rast(path(data_dir, "cams_forecast_uv.nc")) * 40 # Wm2 to UVI
 rst_uv <- project(x = rst_uv, "EPSG:3857")
 
 # Read municipality data
@@ -323,6 +315,45 @@ ui <- page_navbar(
     )
   ),
 
+  # CO
+  nav_panel(
+    title = "Monóxido de Carbono",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_co")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_co")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(outputId = "download_data_co", label = "CSV")
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              "O monóxido de carbono (CO) é um gás resultante da combustão incompleta de combustíveis fósseis, como gasolina, carvão e madeira. Em ambientes urbanos, suas principais fontes incluem veículos automotores, indústrias e queimadas.  A exposição a concentrações elevadas pode causar sintomas como tontura, náusea, confusão mental e, em casos graves, levar à perda de consciência e morte. Crianças, gestantes, idosos e pessoas com doenças cardiovasculares são particularmente vulneráveis aos seus efeitos. O monitoramento das concentrações de monóxido de carbono é essencial para a avaliação da qualidade do ar, emissão de alertas e formulação de políticas públicas voltadas à redução das emissões."
+            )
+          )
+        )
+      )
+    )
+  ),
+
   # Alerts page
   nav_panel(
     title = "Alertas",
@@ -394,7 +425,10 @@ ui <- page_navbar(
       ),
       accordion_panel(
         "Ozônio"
-      )
+      ),
+      accordion_panel(
+        "Monóxido de carbono"
+      ),
     )
   ),
 
@@ -1209,6 +1243,190 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       write_csv2(mun_data_o3(), file)
+    }
+  )
+
+  # Map CO initial state
+  output$map_co <- renderLeaflet({
+    req(input$municipality)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_co)
+    pal <- colorBin(
+      palette = "Purples",
+      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
+      na.color = NA,
+      reverse = FALSE
+    )
+
+    # Depth (forecast)
+    depth <- (24 + 1 + 2) / 3
+    print(depth)
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-118, 33, -30, -56) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_co[[depth]],
+        opacity = .7,
+        colors = pal,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("CO (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map co
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_co", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_co", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_co)
+    pal <- colorBin(
+      palette = "Purples",
+      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
+      na.color = NA,
+      reverse = FALSE
+    )
+
+    # Remove old layers
+    leafletProxy("map_co", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- (input$forecast + 1 + 2) / 3
+
+    # Update map
+    leafletProxy("map_co", session) |>
+      addRasterImage(
+        x = rst_co[[depth]],
+        opacity = .7,
+        colors = pal,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("CO (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Graph co
+  mun_data_co <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_co) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_co <- renderPlot({
+    res <- mun_data_co()
+
+    vline_value <- unique(res$date)[(input$forecast + 1 + 2) / 3]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Previsão de CO (μg/m³)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Elaboração: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    g
+  })
+
+  # Download CO
+  output$download_data_co <- downloadHandler(
+    filename = function() {
+      res <- mun_data_co()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+      paste0("co_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data_co(), file)
     }
   )
 
