@@ -473,7 +473,7 @@ server <- function(input, output, session) {
     )
 
     # Depth (forecast)
-    depth <- input$forecast + 1
+    depth <- 24 + 1
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -687,7 +687,7 @@ server <- function(input, output, session) {
     )
 
     # Depth (forecast)
-    depth <- input$forecast + 1
+    depth <- 24 + 1
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -870,7 +870,7 @@ server <- function(input, output, session) {
     )
 
     # Depth (forecast)
-    depth <- input$forecast + 1
+    depth <- 24 + 1
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -1048,7 +1048,7 @@ server <- function(input, output, session) {
     )
 
     # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
+    depth <- (24 + 1 + 2) / 3
     print(depth)
 
     leaflet() |>
