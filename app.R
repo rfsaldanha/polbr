@@ -17,8 +17,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-# data_dir <- path("data/")
+# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
@@ -29,22 +29,32 @@ con <- dbConnect(
 
 # Table
 tb_pm25 <- "pm25_mun_forecast"
+tb_pm10 <- "pm10_mun_forecast"
 tb_o3 <- "o3_mun_forecast"
 tb_co <- "co_mun_forecast"
+tb_no2 <- "no2_mun_forecast"
+tb_so2 <- "so2_mun_forecast"
 tb_temp <- "temp_mun_forecast"
 tb_uv <- "uv_mun_forecast"
-
-# teste <- o3[[1]]*(sp[[1]]/(260.2*temp[[1]]))*1e9
 
 # Read forecast rasters
 rst_pm25 <- rast(path(data_dir, "cams_forecast_pm25.nc")) * 1e9 # kg/m3 to μg/m3
 rst_pm25 <- project(x = rst_pm25, "EPSG:3857")
 
-rst_o3 <- rast(path(data_dir, "cams_forecast_o3.nc")) * 1e9 # kg/m3 to μg/m3
+rst_pm10 <- rast(path(data_dir, "cams_forecast_pm10.nc")) * 1e9 # kg/m3 to μg/m3
+rst_pm10 <- project(x = rst_pm10, "EPSG:3857")
+
+rst_o3 <- rast(path(data_dir, "cams_forecast_o3_mc.nc")) * 1e9 # kg/m3 to μg/m3
 rst_o3 <- project(x = rst_o3, "EPSG:3857")
 
-rst_co <- rast(path(data_dir, "cams_forecast_co.nc")) * 1e9 # # kg/m3 to μg/m3
+rst_co <- rast(path(data_dir, "cams_forecast_co_mc.nc")) # PPM
 rst_co <- project(x = rst_co, "EPSG:3857")
+
+rst_no2 <- rast(path(data_dir, "cams_forecast_no2_mc.nc")) * 1e9 # kg/m3 to μg/m3
+rst_no2 <- project(x = rst_no2, "EPSG:3857")
+
+rst_so2 <- rast(path(data_dir, "cams_forecast_so2_mc.nc")) * 1e9 # kg/m3 to μg/m3
+rst_so2 <- project(x = rst_so2, "EPSG:3857")
 
 rst_temp <- rast(path(data_dir, "cams_forecast_temp.nc")) - 272.15 # K to °C
 rst_temp <- project(x = rst_temp, "EPSG:3857")
@@ -70,9 +80,66 @@ ref_mun_names <- mun_seats |>
 # bdqueimadas data
 bdq_focos <- readRDS(file = path(data_dir, "bdq_focos.rds"))
 
+# Maps pallet
+pal_pm25 <- colorBin(
+  palette = "YlOrRd",
+  bins = c(0, 15, 50, 75, 125, 300, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
+pal_pm10 <- colorBin(
+  palette = "YlOrBr",
+  bins = c(0, 45, 100, 150, 250, 600, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
+pal_temp <- colorBin(
+  palette = "RdYlBu",
+  bins = c(-Inf, 0, 10, 15, 20, 25, 30, 35, 40, Inf),
+  na.color = NA,
+  reverse = TRUE
+)
+
+pal_uv <- colorBin(
+  palette = "PuOr",
+  bins = c(0, 1, 2, 3, 5, 6, 7, 8, 10, 11, Inf),
+  na.color = NA,
+  reverse = TRUE
+)
+
+pal_o3 <- colorBin(
+  palette = "RdPu",
+  bins = c(0, 100, 130, 160, 200, 800, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
+pal_co <- colorBin(
+  palette = "Purples",
+  bins = c(0, 9, 11, 13, 15, 50, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
+pal_no2 <- colorBin(
+  palette = "BuPu",
+  bins = c(0, 200, 240, 320, 1130, 3750, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
+pal_so2 <- colorBin(
+  palette = "PuBuGn",
+  bins = c(0, 40, 50, 125, 800, 2620, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
 # Interface
 ui <- page_navbar(
-  title = "Previsão de poluentes atmosféricos",
+  title = "PolBR",
   theme = bs_theme(bootswatch = "shiny"),
 
   # Logo
@@ -146,7 +213,12 @@ ui <- page_navbar(
       inputId = "trend_line",
       label = "Linha de tendência",
       value = TRUE
-    )
+    ),
+    checkboxInput(
+      inputId = "conama_line",
+      label = "Parâmetros CONAMA",
+      value = TRUE
+    ),
   ),
 
   # PM2.5
@@ -174,23 +246,52 @@ ui <- page_navbar(
             )
           ),
           accordion_panel(
-            "Configuração do gráfico e download",
-            checkboxInput(
-              inputId = "oms_line",
-              label = "Limite OMS",
-              value = TRUE
-            ),
-            checkboxInput(
-              inputId = "conama_line",
-              label = "Limite CONAMA",
-              value = TRUE
-            ),
+            "Download",
             downloadButton(outputId = "download_data_pm25", label = "CSV")
           ),
           accordion_panel(
             "Descrição",
             HTML(
               "O material particulado fino (PM2.5), composto por partículas com diâmetro aerodinâmico inferior a 2,5 micrômetros, é um importante indicador de poluição atmosférica devido à sua capacidade de penetrar profundamente nos pulmões e alcançar a corrente sanguínea. O monitoramento do PM2.5 é fundamental para avaliar os riscos associados à exposição prolongada a poluentes, especialmente em áreas urbanas e industrializadas. Alguns estudos têm associado concentrações elevadas de PM2.5 ao aumento da incidência de doenças respiratórias e cardiovasculares, além de impactos adversos no desenvolvimento infantil e no envelhecimento. O uso desse indicador permite a formulação de políticas públicas de controle da poluição do ar, a avaliação de desigualdades ambientais e a implementação de estratégias preventivas voltadas à proteção da saúde das populações mais vulneráveis."
+            )
+          )
+        )
+      )
+    )
+  ),
+
+  # PM10
+  nav_panel(
+    title = "PM 10",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_pm10")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_pm10")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(outputId = "download_data_pm10", label = "CSV")
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              ""
             )
           )
         )
@@ -354,6 +455,84 @@ ui <- page_navbar(
     )
   ),
 
+  # NO2
+  nav_panel(
+    title = "Dióxido de nitrogênio",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_no2")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_no2")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(outputId = "download_data_no2", label = "CSV")
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              ""
+            )
+          )
+        )
+      )
+    )
+  ),
+
+  # SO2
+  nav_panel(
+    title = "Dióxido de enxofre",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_so2")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_so2")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(outputId = "download_data_so2", label = "CSV")
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              ""
+            )
+          )
+        )
+      )
+    )
+  ),
+
   # Alerts page
   nav_panel(
     title = "Alertas",
@@ -376,6 +555,9 @@ ui <- page_navbar(
             DTOutput("rank_pm25_conama")
           )
         )
+      ),
+      accordion_panel(
+        "PM 10"
       ),
       accordion_panel(
         "Temperatura",
@@ -428,6 +610,12 @@ ui <- page_navbar(
       ),
       accordion_panel(
         "Monóxido de carbono"
+      ),
+      accordion_panel(
+        "Dióxido de nitrogênio"
+      ),
+      accordion_panel(
+        "Dióxido de enxofre"
       ),
     )
   ),
@@ -499,12 +687,6 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_pm25)
-    pal <- colorBin(
-      palette = "YlOrRd",
-      bins = c(15, 30, 50, 100, 200, 300, 500, Inf),
-      na.color = NA,
-      reverse = FALSE
-    )
 
     # Depth (forecast)
     depth <- 24 + 1
@@ -529,13 +711,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_pm25[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_pm25,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_pm25,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("PM2.5 (μg/m³)")
@@ -577,12 +759,6 @@ server <- function(input, output, session) {
   observeEvent(input$forecast, {
     # Palette
     mm <- minmax(rst_pm25)
-    pal <- colorBin(
-      palette = "YlOrRd",
-      bins = c(15, 30, 50, 100, 200, 300, 500, Inf),
-      na.color = NA,
-      reverse = FALSE
-    )
 
     # Remove old layers
     leafletProxy("map_pm25", session) |>
@@ -598,13 +774,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_pm25[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_pm25,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_pm25,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("PM2.5 (μg/m³)")
@@ -664,24 +840,34 @@ server <- function(input, output, session) {
         geom_smooth(color = "purple", se = TRUE, size = 0.7)
     }
 
-    if (input$oms_line == TRUE) {
-      g <- g +
-        geom_texthline(
-          yintercept = 15,
-          label = "OMS",
-          hjust = 0.1,
-          color = "blue",
-          linetype = "dashed"
-        )
-    }
-
     if (input$conama_line == TRUE) {
       g <- g +
         geom_texthline(
-          yintercept = 50,
-          label = "CONAMA",
+          yintercept = 15,
+          label = "N2 - Moderada",
           hjust = 0.1,
-          color = "blue",
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 50,
+          label = "N3 - Ruim",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 75,
+          label = "N4 - Muito ruim",
+          hjust = 0.1,
+          color = "red",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 125,
+          label = "N5 - Péssimo",
+          hjust = 0.1,
+          color = "purple",
           linetype = "dashed"
         )
     }
@@ -701,6 +887,218 @@ server <- function(input, output, session) {
     }
   )
 
+  # Map PM10 initial state
+  output$map_pm10 <- renderLeaflet({
+    req(input$municipality)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_pm10)
+
+    # Depth (forecast)
+    depth <- 24 + 1
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-118, 33, -30, -56) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addCircleMarkers(
+        lng = bdq_focos$lon,
+        lat = bdq_focos$lat,
+        fillColor = "firebrick",
+        fillOpacity = .5,
+        radius = 4,
+        stroke = FALSE,
+        group = "INPE/BDQueimadas"
+      ) |>
+      addRasterImage(
+        x = rst_pm10[[depth]],
+        opacity = .7,
+        colors = pal_pm10,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_pm10,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("PM10 (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster", "INPE/BDQueimadas"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map pm10
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_pm10", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_pm10", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_pm10)
+
+    # Remove old layers
+    leafletProxy("map_pm10", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    # Update map
+    leafletProxy("map_pm10", session) |>
+      addRasterImage(
+        x = rst_pm10[[depth]],
+        opacity = .7,
+        colors = pal_pm10,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_pm10,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("PM10 (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster", "INPE/BDQueimadas"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Graph pm10
+  mun_data_pm10 <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_pm10) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_pm10 <- renderPlot({
+    res <- mun_data_pm10()
+
+    vline_value <- unique(res$date)[input$forecast + 1]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Previsão de PM10 (μg/m³)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Elaboração: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_texthline(
+          yintercept = 45,
+          label = "N2 - Moderada",
+          hjust = 0.1,
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 100,
+          label = "N3 - Ruim",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 150,
+          label = "N4 - Muito ruim",
+          hjust = 0.1,
+          color = "red",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 250,
+          label = "N5 - Péssimo",
+          hjust = 0.1,
+          color = "purple",
+          linetype = "dashed"
+        )
+    }
+
+    g
+  })
+
+  # Download pm10
+  output$download_data_pm10 <- downloadHandler(
+    filename = function() {
+      res <- mun_data_pm10()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+      paste0("pm25_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data_pm10(), file)
+    }
+  )
+
   # Map temperature initial state
   output$map_temp <- renderLeaflet({
     req(input$municipality)
@@ -713,12 +1111,6 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_temp)
-    pal <- colorBin(
-      palette = "RdYlBu",
-      bins = c(-Inf, 0, 10, 15, 20, 25, 30, 35, 40, Inf),
-      na.color = NA,
-      reverse = TRUE
-    )
 
     # Depth (forecast)
     depth <- 24 + 1
@@ -734,13 +1126,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_temp[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_temp,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_temp,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("Temperatura (°C)")
@@ -782,12 +1174,6 @@ server <- function(input, output, session) {
   observeEvent(input$forecast, {
     # Palette
     mm <- minmax(rst_temp)
-    pal <- colorBin(
-      palette = "RdYlBu",
-      bins = c(-Inf, 0, 10, 15, 20, 25, 30, 35, 40, Inf),
-      na.color = NA,
-      reverse = TRUE
-    )
 
     # Remove old layers
     leafletProxy("map_temp", session) |>
@@ -803,13 +1189,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_temp[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_temp,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_temp,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("Temperatura (°C)")
@@ -896,12 +1282,6 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_uv)
-    pal <- colorBin(
-      palette = "PuOr",
-      bins = c(0, 1, 2, 3, 5, 6, 7, 8, 10, 11, Inf),
-      na.color = NA,
-      reverse = TRUE
-    )
 
     # Depth (forecast)
     depth <- 24 + 1
@@ -917,13 +1297,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_uv[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_uv,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_uv,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("Índice UV")
@@ -965,12 +1345,6 @@ server <- function(input, output, session) {
   observeEvent(input$forecast, {
     # Palette
     mm <- minmax(rst_uv)
-    pal <- colorBin(
-      palette = "PuOr",
-      bins = c(0, 1, 2, 3, 5, 6, 7, 8, 10, 11, Inf),
-      na.color = NA,
-      reverse = TRUE
-    )
 
     # Remove old layers
     leafletProxy("map_uv", session) |>
@@ -986,13 +1360,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_uv[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_uv,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_uv,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("Índice UV")
@@ -1047,6 +1421,38 @@ server <- function(input, output, session) {
       ) +
       theme_light()
 
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_texthline(
+          yintercept = 3,
+          label = "Moderado",
+          hjust = 0.1,
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 6,
+          label = "Alto",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 8,
+          label = "Muito alto",
+          hjust = 0.1,
+          color = "red",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 11,
+          label = "Extremo",
+          hjust = 0.1,
+          color = "purple",
+          linetype = "dashed"
+        )
+    }
+
     g
   })
 
@@ -1074,12 +1480,6 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_o3)
-    pal <- colorBin(
-      palette = "RdPu",
-      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
-      na.color = NA,
-      reverse = FALSE
-    )
 
     # Depth (forecast)
     depth <- (24 + 1 + 2) / 3
@@ -1096,13 +1496,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_o3[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_o3,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_o3,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("O3 (μg/m³)")
@@ -1144,12 +1544,6 @@ server <- function(input, output, session) {
   observeEvent(input$forecast, {
     # Palette
     mm <- minmax(rst_o3)
-    pal <- colorBin(
-      palette = "RdPu",
-      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
-      na.color = NA,
-      reverse = FALSE
-    )
 
     # Remove old layers
     leafletProxy("map_o3", session) |>
@@ -1165,13 +1559,13 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_o3[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_o3,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_o3,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
         title = paste0("O3 (μg/m³)")
@@ -1231,6 +1625,38 @@ server <- function(input, output, session) {
         geom_smooth(color = "purple", se = TRUE, size = 0.7)
     }
 
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_texthline(
+          yintercept = 100,
+          label = "N2 - Moderada",
+          hjust = 0.1,
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 130,
+          label = "N3 - Ruim",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 160,
+          label = "N4 - Muito ruim",
+          hjust = 0.1,
+          color = "red",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 200,
+          label = "N5 - Péssimo",
+          hjust = 0.1,
+          color = "purple",
+          linetype = "dashed"
+        )
+    }
+
     g
   })
 
@@ -1258,12 +1684,6 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_co)
-    pal <- colorBin(
-      palette = "Purples",
-      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
-      na.color = NA,
-      reverse = FALSE
-    )
 
     # Depth (forecast)
     depth <- (24 + 1 + 2) / 3
@@ -1280,16 +1700,16 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_co[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_co,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_co,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
-        title = paste0("CO (μg/m³)")
+        title = paste0("CO (PPM)")
       ) |>
       # Layers control
       addLayersControl(
@@ -1328,12 +1748,6 @@ server <- function(input, output, session) {
   observeEvent(input$forecast, {
     # Palette
     mm <- minmax(rst_co)
-    pal <- colorBin(
-      palette = "Purples",
-      bins = c(0, 20, 40, 60, 80, 100, 200, 400, 600, 800, Inf),
-      na.color = NA,
-      reverse = FALSE
-    )
 
     # Remove old layers
     leafletProxy("map_co", session) |>
@@ -1349,16 +1763,16 @@ server <- function(input, output, session) {
       addRasterImage(
         x = rst_co[[depth]],
         opacity = .7,
-        colors = pal,
+        colors = pal_co,
         layerId = "raster",
         project = FALSE,
         group = "raster"
       ) |>
       addLegend(
-        pal = pal,
+        pal = pal_co,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
-        title = paste0("CO (μg/m³)")
+        title = paste0("CO (PPM)")
       ) |>
       # Layers control
       addLayersControl(
@@ -1396,7 +1810,7 @@ server <- function(input, output, session) {
       ylim(c(0, NA)) +
       scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
       labs(
-        title = "Previsão de CO (μg/m³)",
+        title = "Previsão de CO (PPM)",
         subtitle = paste0(names(mun_names[mun_names == input$municipality])),
         caption = paste0(
           "Previsão atmosférica: Copernicus/CAMS\n",
@@ -1415,6 +1829,38 @@ server <- function(input, output, session) {
         geom_smooth(color = "purple", se = TRUE, size = 0.7)
     }
 
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_texthline(
+          yintercept = 9,
+          label = "N2 - Moderada",
+          hjust = 0.1,
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 11,
+          label = "N3 - Ruim",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 13,
+          label = "N4 - Muito ruim",
+          hjust = 0.1,
+          color = "red",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 15,
+          label = "N5 - Péssimo",
+          hjust = 0.1,
+          color = "purple",
+          linetype = "dashed"
+        )
+    }
+
     g
   })
 
@@ -1427,6 +1873,414 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       write_csv2(mun_data_co(), file)
+    }
+  )
+
+  # Map NO2 initial state
+  output$map_no2 <- renderLeaflet({
+    req(input$municipality)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_no2)
+
+    # Depth (forecast)
+    depth <- (24 + 1 + 2) / 3
+    print(depth)
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-118, 33, -30, -56) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_no2[[depth]],
+        opacity = .7,
+        colors = pal_no2,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_no2,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("NO2 (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map no2
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_no2", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_no2", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_no2)
+
+    # Remove old layers
+    leafletProxy("map_no2", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- (input$forecast + 1 + 2) / 3
+
+    # Update map
+    leafletProxy("map_no2", session) |>
+      addRasterImage(
+        x = rst_no2[[depth]],
+        opacity = .7,
+        colors = pal_no2,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_no2,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("NO2 (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Graph no2
+  mun_data_no2 <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_no2) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_no2 <- renderPlot({
+    res <- mun_data_no2()
+
+    vline_value <- unique(res$date)[(input$forecast + 1 + 2) / 3]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Previsão de NO2 (μg/m³)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Elaboração: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_texthline(
+          yintercept = 200,
+          label = "N2 - Moderada",
+          hjust = 0.1,
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 240,
+          label = "N3 - Ruim",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 320,
+          label = "N4 - Muito ruim",
+          hjust = 0.1,
+          color = "red",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 1130,
+          label = "N5 - Péssimo",
+          hjust = 0.1,
+          color = "purple",
+          linetype = "dashed"
+        )
+    }
+
+    g
+  })
+
+  # Download NO2
+  output$download_data_no2 <- downloadHandler(
+    filename = function() {
+      res <- mun_data_no2()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+      paste0("co_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data_no2(), file)
+    }
+  )
+
+  # Map SO2 initial state
+  output$map_so2 <- renderLeaflet({
+    req(input$municipality)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_so2)
+
+    # Depth (forecast)
+    depth <- (24 + 1 + 2) / 3
+    print(depth)
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-118, 33, -30, -56) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_so2[[depth]],
+        opacity = .7,
+        colors = pal_so2,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_so2,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("SO2 (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map no2
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_so2", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_so2", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_so2)
+
+    # Remove old layers
+    leafletProxy("map_so2", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- (input$forecast + 1 + 2) / 3
+
+    # Update map
+    leafletProxy("map_so2", session) |>
+      addRasterImage(
+        x = rst_co[[depth]],
+        opacity = .7,
+        colors = pal_so2,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_so2,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("SO2 (μg/m³)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Graph so2
+  mun_data_so2 <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_so2) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_so2 <- renderPlot({
+    res <- mun_data_so2()
+
+    vline_value <- unique(res$date)[(input$forecast + 1 + 2) / 3]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Previsão de SO2 (μg/m³)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Elaboração: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_texthline(
+          yintercept = 40,
+          label = "N2 - Moderada",
+          hjust = 0.1,
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 50,
+          label = "N3 - Ruim",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 125,
+          label = "N4 - Muito ruim",
+          hjust = 0.1,
+          color = "red",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 800,
+          label = "N5 - Péssimo",
+          hjust = 0.1,
+          color = "purple",
+          linetype = "dashed"
+        )
+    }
+
+    g
+  })
+
+  # Download SO2
+  output$download_data_so2 <- downloadHandler(
+    filename = function() {
+      res <- mun_data_so2()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+      paste0("co_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data_so2(), file)
     }
   )
 
