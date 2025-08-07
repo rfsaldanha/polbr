@@ -17,8 +17,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-# data_dir <- path("../camsdata/forecast_data/")
+# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
@@ -148,13 +148,13 @@ ui <- page_navbar(
       HTML(
         '$(document).ready(function() {
              $(".navbar .container-fluid")
-               .append("<img id = \'myImage\' src=\'selo_obs_h.png\' align=\'right\' height = \'57.5px\'>"  );
+               .append("<img id = \'myImage\' src=\'pin_obs_horizontal.png\' align=\'right\' height = \'50px\'>"  );
             });'
       )
     ),
     tags$style(
       HTML(
-        '@media (max-width:992px) { #myImage { position: fixed; right: 10%; top: 0.5%; }}'
+        '@media (max-width:992px) { #myImage { position: fixed; right: 20%; top: 0.5%; }}'
       )
     )
   ),
