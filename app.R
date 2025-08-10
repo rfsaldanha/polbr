@@ -805,6 +805,7 @@ server <- function(input, output, session) {
   # Map IQAr initial state
   output$map_iqar <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -816,7 +817,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_iqar)
 
     # Depth (forecast)
-    depth <- (24 + 1 + 2) / 3
+    depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -824,7 +825,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
         x = rst_iqar[[depth]],
@@ -1007,6 +1008,7 @@ server <- function(input, output, session) {
   # Map PM2.5 initial state
   output$map_pm25 <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -1018,7 +1020,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_pm25)
 
     # Depth (forecast)
-    depth <- 24 + 1
+    depth <- input$forecast + 1
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -1026,7 +1028,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addCircleMarkers(
         lng = bdq_focos$lon,
@@ -1219,6 +1221,7 @@ server <- function(input, output, session) {
   # Map PM10 initial state
   output$map_pm10 <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -1230,7 +1233,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_pm10)
 
     # Depth (forecast)
-    depth <- 24 + 1
+    depth <- input$forecast + 1
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -1238,7 +1241,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addCircleMarkers(
         lng = bdq_focos$lon,
@@ -1431,6 +1434,7 @@ server <- function(input, output, session) {
   # Map temperature initial state
   output$map_temp <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -1442,7 +1446,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_temp)
 
     # Depth (forecast)
-    depth <- 24 + 1
+    depth <- input$forecast + 1
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -1450,7 +1454,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
         x = rst_temp[[depth]],
@@ -1602,6 +1606,7 @@ server <- function(input, output, session) {
   # Map UV initial state
   output$map_uv <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -1613,7 +1618,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_uv)
 
     # Depth (forecast)
-    depth <- 24 + 1
+    depth <- input$forecast + 1
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -1621,7 +1626,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
         x = rst_uv[[depth]],
@@ -1800,6 +1805,7 @@ server <- function(input, output, session) {
   # Map O3 initial state
   output$map_o3 <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -1811,8 +1817,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_o3)
 
     # Depth (forecast)
-    depth <- (24 + 1 + 2) / 3
-    print(depth)
+    depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -1820,7 +1825,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
         x = rst_o3[[depth]],
@@ -2004,6 +2009,7 @@ server <- function(input, output, session) {
   # Map CO initial state
   output$map_co <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -2015,8 +2021,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_co)
 
     # Depth (forecast)
-    depth <- (24 + 1 + 2) / 3
-    print(depth)
+    depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -2024,7 +2029,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
         x = rst_co[[depth]],
@@ -2208,6 +2213,7 @@ server <- function(input, output, session) {
   # Map NO2 initial state
   output$map_no2 <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -2219,8 +2225,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_no2)
 
     # Depth (forecast)
-    depth <- (24 + 1 + 2) / 3
-    print(depth)
+    depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
@@ -2228,7 +2233,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
         x = rst_no2[[depth]],
@@ -2412,6 +2417,7 @@ server <- function(input, output, session) {
   # Map SO2 initial state
   output$map_so2 <- renderLeaflet({
     req(input$municipality)
+    req(input$forecast)
 
     # Municipality coordinates
     coord <- mun_seats |>
@@ -2423,8 +2429,7 @@ server <- function(input, output, session) {
     mm <- minmax(rst_so2)
 
     # Depth (forecast)
-    depth <- (24 + 1 + 2) / 3
-    print(depth)
+    depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
       addTiles(group = "Open Street Maps") |>
