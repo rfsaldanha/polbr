@@ -77,6 +77,68 @@ ref_mun_names <- mun_seats |>
   select(-abbrev_state) |>
   as_tibble()
 
+# UFs
+ufs <- tibble(
+  abbrev = c(
+    "AC",
+    "AL",
+    "AM",
+    "AP",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MG",
+    "MS",
+    "MT",
+    "PA",
+    "PB",
+    "PE",
+    "PI",
+    "PR",
+    "RJ",
+    "RN",
+    "RO",
+    "RR",
+    "RS",
+    "SC",
+    "SE",
+    "SP",
+    "TO"
+  ),
+  code = c(
+    12,
+    27,
+    13,
+    16,
+    29,
+    23,
+    53,
+    32,
+    52,
+    21,
+    31,
+    50,
+    51,
+    15,
+    25,
+    26,
+    22,
+    41,
+    33,
+    24,
+    11,
+    14,
+    43,
+    42,
+    28,
+    35,
+    17
+  )
+)
+
 # bdqueimadas data
 bdq_focos <- readRDS(file = path(data_dir, "bdq_focos.rds"))
 
@@ -195,10 +257,11 @@ ui <- page_navbar(
   sidebar = sidebar(
     uiOutput(outputId = "update_time"),
     pickerInput(
-      inputId = "municipality",
-      label = "Município",
-      choices = NULL
+      inputId = "uf",
+      label = "UF",
+      choices = c("Todas", ufs$abbrev)
     ),
+    uiOutput(outputId = "municipality_ui"),
     sliderInput(
       inputId = "forecast",
       label = "Previsão (horas)",
@@ -649,14 +712,26 @@ ui <- page_navbar(
 
 # Server
 server <- function(input, output, session) {
-  # Update municipality selector
-  updatePickerInput(
-    session = session,
-    # server = TRUE,
-    inputId = "municipality",
-    choices = mun_names,
-    options = pickerOptions(container = "body", liveSearch = TRUE)
-  )
+  output$municipality_ui <- renderUI({
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      sub <- mun_seats |>
+        filter(abbrev_state == input$uf)
+
+      res <- sub$code_muni
+      names(res) <- paste(sub$name_muni, "-", sub$abbrev_state)
+    } else {
+      res <- mun_seats$code_muni
+      names(res) <- paste(mun_seats$name_muni, "-", mun_seats$abbrev_state)
+    }
+
+    pickerInput(
+      inputId = "municipality",
+      label = "Município",
+      choices = res
+    )
+  })
 
   # Update time text
   output$update_time <- renderUI({
@@ -2286,13 +2361,27 @@ server <- function(input, output, session) {
 
   # Alerts
   output$rank_pm25_max <- renderDT({
-    tbl(con, tb_pm25) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       group_by(code_muni) |>
       filter(value == max(value)) |>
       ungroup() |>
       arrange(-value) |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2301,14 +2390,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_pm25_oms <- renderDT({
-    tbl(con, tb_pm25) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value > 15, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2317,14 +2420,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_pm25_conama <- renderDT({
-    tbl(con, tb_pm25) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value > 50, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2333,13 +2450,27 @@ server <- function(input, output, session) {
   })
 
   output$rank_temp_max <- renderDT({
-    tbl(con, tb_temp) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       group_by(code_muni) |>
       filter(value == max(value)) |>
       ungroup() |>
       arrange(-value) |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2352,13 +2483,27 @@ server <- function(input, output, session) {
   })
 
   output$rank_temp_min <- renderDT({
-    tbl(con, tb_temp) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       group_by(code_muni) |>
       filter(value == min(value)) |>
       ungroup() |>
       arrange(value) |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2371,14 +2516,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_temp_35 <- renderDT({
-    tbl(con, tb_temp) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value >= 35, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2387,14 +2546,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_temp_10 <- renderDT({
-    tbl(con, tb_temp) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value <= 10, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2403,13 +2576,27 @@ server <- function(input, output, session) {
   })
 
   output$rank_uv_max <- renderDT({
-    tbl(con, tb_uv) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       group_by(code_muni) |>
       filter(value == max(value)) |>
       ungroup() |>
       arrange(-value) |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2422,14 +2609,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_uv_3 <- renderDT({
-    tbl(con, tb_uv) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value >= 3, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2438,14 +2639,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_uv_6 <- renderDT({
-    tbl(con, tb_uv) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value >= 6, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2454,14 +2669,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_uv_8 <- renderDT({
-    tbl(con, tb_uv) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value >= 8, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2470,14 +2699,28 @@ server <- function(input, output, session) {
   })
 
   output$rank_uv_11 <- renderDT({
-    tbl(con, tb_uv) |>
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_pm25) |>
+        collect() |>
+        filter(substr(code_muni, 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_pm25) |>
+        collect()
+    }
+
+    res |>
       mutate(ref = ifelse(value >= 11, TRUE, FALSE)) |>
       filter(ref == TRUE) |>
       group_by(code_muni) |>
       summarise(freq = n()) |>
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
-      collect() |>
       arrange(-freq) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
