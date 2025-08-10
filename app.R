@@ -2437,7 +2437,7 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
-      fitBounds(-118, 33, -30, -56) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
         x = rst_so2[[depth]],
