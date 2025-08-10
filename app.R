@@ -2628,11 +2628,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2640,6 +2638,7 @@ server <- function(input, output, session) {
       filter(value == max(value)) |>
       ungroup() |>
       arrange(-value) |>
+      collect() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2657,11 +2656,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2672,6 +2669,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2687,11 +2685,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2702,6 +2698,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2717,11 +2714,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2729,6 +2724,7 @@ server <- function(input, output, session) {
       filter(value == max(value)) |>
       ungroup() |>
       arrange(-value) |>
+      collect() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2750,11 +2746,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2762,6 +2756,7 @@ server <- function(input, output, session) {
       filter(value == min(value)) |>
       ungroup() |>
       arrange(value) |>
+      collect() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
@@ -2783,11 +2778,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2798,6 +2791,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2813,11 +2807,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2828,6 +2820,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2843,11 +2836,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2856,6 +2847,7 @@ server <- function(input, output, session) {
       ungroup() |>
       arrange(-value) |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2876,11 +2868,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2891,6 +2881,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2906,11 +2897,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2921,6 +2910,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2936,11 +2926,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2951,6 +2939,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
@@ -2966,11 +2955,9 @@ server <- function(input, output, session) {
         pull(code)
 
       res <- tbl(con, tb_pm25) |>
-        collect() |>
-        filter(substr(code_muni, 0, 2) == uf_code)
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25) |>
-        collect()
+      res <- tbl(con, tb_pm25)
     }
 
     res |>
@@ -2981,6 +2968,7 @@ server <- function(input, output, session) {
       ungroup() |>
       mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
       arrange(-freq) |>
+      collect() |>
       left_join(ref_mun_names) |>
       select(-code_muni) |>
       relocate(name_muni) |>
