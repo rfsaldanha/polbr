@@ -156,14 +156,14 @@ pal_iqar <- colorBin(
 
 pal_pm25 <- colorBin(
   palette = "YlOrRd",
-  bins = c(0, 15, 50, 75, 125, 300, Inf),
+  bins = c(0, 15, 50, 75, 125, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_pm10 <- colorBin(
   palette = "YlOrBr",
-  bins = c(0, 45, 100, 150, 250, 600, Inf),
+  bins = c(0, 45, 100, 150, 250, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -184,28 +184,28 @@ pal_uv <- colorBin(
 
 pal_o3 <- colorBin(
   palette = "RdPu",
-  bins = c(0, 100, 130, 160, 200, 800, Inf),
+  bins = c(0, 100, 130, 160, 200, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_co <- colorBin(
   palette = "Purples",
-  bins = c(0, 9, 11, 13, 15, 50, Inf),
+  bins = c(0, 9, 11, 13, 15, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_no2 <- colorBin(
   palette = "BuPu",
-  bins = c(0, 200, 240, 320, 1130, 3750, Inf),
+  bins = c(0, 200, 240, 320, 1130, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_so2 <- colorBin(
   palette = "PuBuGn",
-  bins = c(0, 40, 50, 125, 800, 2620, Inf),
+  bins = c(0, 40, 50, 125, 800, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -413,84 +413,6 @@ ui <- page_navbar(
     )
   ),
 
-  # Temperature
-  nav_panel(
-    title = "Temperatura",
-    page_fillable(
-      layout_columns(
-        col_widths = c(6, 6),
-        # Map card
-        card(
-          full_screen = TRUE,
-          card_body(
-            class = "p-0", # Fill card, used for maps
-            leafletOutput(outputId = "map_temp")
-          )
-        ),
-
-        accordion(
-          multiple = FALSE,
-          accordion_panel(
-            "Gráfico",
-            card(
-              full_screen = TRUE,
-              plotOutput(outputId = "graph_temp")
-            )
-          ),
-          accordion_panel(
-            "Download",
-            downloadButton(outputId = "download_data_temp", label = "CSV")
-          ),
-          accordion_panel(
-            "Descrição",
-            HTML(
-              "A temperatura do ar é um dos principais determinantes climáticos com impacto direto e indireto na saúde humana. O monitoramento das variações de temperatura é essencial para compreender e prevenir agravos relacionados ao calor extremo, como desidratação, insolação, agravamento de doenças cardiovasculares e respiratórias, além de aumento da mortalidade em populações vulneráveis, como idosos e crianças. Ondas de calor têm sido associadas a surtos de morbimortalidade em diversas regiões do mundo, enquanto temperaturas mais baixas também podem aumentar o risco de infecções respiratórias. Além disso, a temperatura influencia a dinâmica de vetores de doenças, como os mosquitos transmissores da dengue, zika e chikungunya. A análise de padrões térmicos é fundamental para o planejamento de ações de vigilância em saúde, desenvolvimento de sistemas de alerta precoce e formulação de políticas de adaptação às mudanças climáticas."
-            )
-          )
-        )
-      )
-    )
-  ),
-
-  # UV
-  nav_panel(
-    title = "IUV",
-    page_fillable(
-      layout_columns(
-        col_widths = c(6, 6),
-        # Map card
-        card(
-          full_screen = TRUE,
-          card_body(
-            class = "p-0", # Fill card, used for maps
-            leafletOutput(outputId = "map_uv")
-          )
-        ),
-
-        accordion(
-          multiple = FALSE,
-          accordion_panel(
-            "Gráfico",
-            card(
-              full_screen = TRUE,
-              plotOutput(outputId = "graph_uv")
-            )
-          ),
-          accordion_panel(
-            "Download",
-            downloadButton(outputId = "download_data_uv", label = "CSV")
-          ),
-          accordion_panel(
-            "Descrição",
-            HTML(
-              "O Índice Ultravioleta (Índice UV) é um indicador que quantifica a intensidade da radiação solar ultravioleta na superfície da Terra, sendo fundamental para avaliar o risco de danos à saúde causados pela exposição excessiva ao sol. Esse índice é amplamente utilizado para orientar a população sobre medidas de proteção solar, especialmente em horários de maior radiação, contribuindo para a prevenção de doenças como câncer de pele, queimaduras, envelhecimento precoce e danos oculares, como catarata. O monitoramento do Índice UV permite a emissão de alertas diários e sazonais, facilitando a adoção de comportamentos preventivos, como o uso de protetor solar, roupas adequadas e a limitação da exposição ao sol."
-            )
-          )
-        )
-      )
-    )
-  ),
-
   # O3
   nav_panel(
     title = "O3",
@@ -640,6 +562,84 @@ ui <- page_navbar(
             "Descrição",
             HTML(
               ""
+            )
+          )
+        )
+      )
+    )
+  ),
+
+  # Temperature
+  nav_panel(
+    title = "Temperatura",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_temp")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_temp")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(outputId = "download_data_temp", label = "CSV")
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              "A temperatura do ar é um dos principais determinantes climáticos com impacto direto e indireto na saúde humana. O monitoramento das variações de temperatura é essencial para compreender e prevenir agravos relacionados ao calor extremo, como desidratação, insolação, agravamento de doenças cardiovasculares e respiratórias, além de aumento da mortalidade em populações vulneráveis, como idosos e crianças. Ondas de calor têm sido associadas a surtos de morbimortalidade em diversas regiões do mundo, enquanto temperaturas mais baixas também podem aumentar o risco de infecções respiratórias. Além disso, a temperatura influencia a dinâmica de vetores de doenças, como os mosquitos transmissores da dengue, zika e chikungunya. A análise de padrões térmicos é fundamental para o planejamento de ações de vigilância em saúde, desenvolvimento de sistemas de alerta precoce e formulação de políticas de adaptação às mudanças climáticas."
+            )
+          )
+        )
+      )
+    )
+  ),
+
+  # UV
+  nav_panel(
+    title = "IUV",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_uv")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_uv")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(outputId = "download_data_uv", label = "CSV")
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              "O Índice Ultravioleta (Índice UV) é um indicador que quantifica a intensidade da radiação solar ultravioleta na superfície da Terra, sendo fundamental para avaliar o risco de danos à saúde causados pela exposição excessiva ao sol. Esse índice é amplamente utilizado para orientar a população sobre medidas de proteção solar, especialmente em horários de maior radiação, contribuindo para a prevenção de doenças como câncer de pele, queimaduras, envelhecimento precoce e danos oculares, como catarata. O monitoramento do Índice UV permite a emissão de alertas diários e sazonais, facilitando a adoção de comportamentos preventivos, como o uso de protetor solar, roupas adequadas e a limitação da exposição ao sol."
             )
           )
         )
