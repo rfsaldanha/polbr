@@ -17,8 +17,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-data_dir <- path("../camsdata/forecast_data/")
+data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+# data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
