@@ -824,7 +824,10 @@ ui <- page_navbar(
       accordion_panel(
         "Dados e métodos",
         p(
-          "Os dados de previsão de poluentes e condições atmosféricas são obtidos diariamente por meio de consulta à API do programa Copernicus Atmosphere Monitoring Service (CAMS). Após a coleta, essas informações são convertidas para as unidades de análise apropriadas e utilizadas para o cálculo do Índice de Qualidade do Ar (IQAr), conforme os parâmetros do CONAMA."
+          "Os dados de previsão de poluentes e condições atmosféricas são obtidos diariamente por meio de consulta à API do programa Copernicus Atmosphere Monitoring Service (CAMS), cobrindo o horizonte de 120 horas. Após a coleta, essas informações são convertidas para as unidades de análise apropriadas e utilizadas para o cálculo do Índice de Qualidade do Ar (IQAr), conforme metodologia do CONAMA."
+        ),
+        p(
+          "Os dados de PM 2.5, PM 10, temperatura e IUV são projeções de hora em hora pelo CAMS. Os dados de O3, CO, NO2 e SO2 são previsões de três em três horas pelo CAMS. Como o cálculo do IQAr utiliza dados de gases, sua previsão também é apresentada de três em três horas."
         ),
         p(
           "Os mapas de PM 2.5 e PM 10 apresentam, além do nível de concentração dos poluentes, o focos de calor identificados pelo programa BDQueimadas do INPE, dos últimos três dias."
