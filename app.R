@@ -17,8 +17,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-# data_dir <- path("../camsdata/forecast_data/")
+# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
@@ -322,7 +322,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_iqar", label = "CSV")
+            downloadButton(
+              outputId = "download_data_iqar_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_iqar_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -361,7 +368,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_pm25", label = "CSV")
+            downloadButton(
+              outputId = "download_data_pm25_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_pm25_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -400,7 +414,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_pm10", label = "CSV")
+            downloadButton(
+              outputId = "download_data_pm10_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_pm10_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -439,7 +460,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_o3", label = "CSV")
+            downloadButton(
+              outputId = "download_data_o3_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_o3_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -478,7 +506,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_co", label = "CSV")
+            downloadButton(
+              outputId = "download_data_co_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_co_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -517,7 +552,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_no2", label = "CSV")
+            downloadButton(
+              outputId = "download_data_no2_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_no2_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -556,7 +598,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_so2", label = "CSV")
+            downloadButton(
+              outputId = "download_data_so2_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_so2_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -595,7 +644,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_temp", label = "CSV")
+            downloadButton(
+              outputId = "download_data_temp_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_temp_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -634,7 +690,14 @@ ui <- page_navbar(
           ),
           accordion_panel(
             "Download",
-            downloadButton(outputId = "download_data_uv", label = "CSV")
+            downloadButton(
+              outputId = "download_data_uv_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_uv_uf",
+              label = "UF selecionada"
+            )
           ),
           accordion_panel(
             "Descrição",
@@ -1013,14 +1076,59 @@ server <- function(input, output, session) {
   })
 
   # Download iqar
-  output$download_data_iqar <- downloadHandler(
+  output$download_data_iqar_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_iqar()
       res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("iqar_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_iqar(), file)
+      write_csv2(mun_data_iqar() |> rename(`iqar` = value), file)
+    }
+  )
+
+  output$download_data_iqar_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_iqar()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("iqar_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_iqar) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        mutate(
+          label = case_when(
+            value >= 0 & value <= 40 ~ "N1 - Boa",
+            value > 40 & value <= 80 ~ "N2 - Moderada",
+            value > 80 & value <= 120 ~ "N3 - Ruim",
+            value > 120 & value <= 200 ~ "N4 - Muito ruim",
+            value > 200 ~ "N5 - Péssima",
+          )
+        ) |>
+        rename(`iqar` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -1226,14 +1334,50 @@ server <- function(input, output, session) {
   })
 
   # Download pm25
-  output$download_data_pm25 <- downloadHandler(
+  output$download_data_pm25_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_pm25()
       res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("pm25_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_pm25(), file)
+      write_csv2(mun_data_pm25() |> rename(`pm2.5` = value), file)
+    }
+  )
+
+  output$download_data_pm25_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_pm25()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("pm25_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_pm25) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`pm2.5` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -1439,14 +1583,50 @@ server <- function(input, output, session) {
   })
 
   # Download pm10
-  output$download_data_pm10 <- downloadHandler(
+  output$download_data_pm10_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_pm10()
       res <- format(min(res$date), "%Y%m%d_%H%M")
-      paste0("pm25_previsao_", res, "_", input$municipality, ".csv")
+      paste0("pm10_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_pm10(), file)
+      write_csv2(mun_data_pm10() |> rename(`pm10` = value), file)
+    }
+  )
+
+  output$download_data_pm10_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_pm10()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("pm10_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_pm10) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`pm10` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -1611,14 +1791,50 @@ server <- function(input, output, session) {
   })
 
   # Download temp
-  output$download_data_temp <- downloadHandler(
+  output$download_data_temp_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_temp()
       res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("temp_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_temp(), file)
+      write_csv2(mun_data_temp() |> rename(`temp` = value), file)
+    }
+  )
+
+  output$download_data_temp_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_temp()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("temp_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_temp) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`temp` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -1810,14 +2026,50 @@ server <- function(input, output, session) {
   })
 
   # Download UV
-  output$download_data_uv <- downloadHandler(
+  output$download_data_uv_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_uv()
       res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("uv_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_uv(), file)
+      write_csv2(mun_data_uv() |> rename(`iuv` = value), file)
+    }
+  )
+
+  output$download_data_uv_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_uv()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("uv_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_uv) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`uv` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -2014,14 +2266,50 @@ server <- function(input, output, session) {
   })
 
   # Download O3
-  output$download_data_o3 <- downloadHandler(
+  output$download_data_o3_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_o3()
       res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("o3_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_o3(), file)
+      write_csv2(mun_data_o3() |> rename(`o3` = value), file)
+    }
+  )
+
+  output$download_data_o3_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_o3()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("o3_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_o3) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`o3` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -2218,14 +2506,50 @@ server <- function(input, output, session) {
   })
 
   # Download CO
-  output$download_data_co <- downloadHandler(
+  output$download_data_co_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_co()
       res <- format(min(res$date), "%Y%m%d_%H%M")
       paste0("co_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_co(), file)
+      write_csv2(mun_data_co() |> rename(`co` = value), file)
+    }
+  )
+
+  output$download_data_co_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_co()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("co_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_co) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`co` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -2422,14 +2746,50 @@ server <- function(input, output, session) {
   })
 
   # Download NO2
-  output$download_data_no2 <- downloadHandler(
+  output$download_data_no2_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_no2()
       res <- format(min(res$date), "%Y%m%d_%H%M")
-      paste0("co_previsao_", res, "_", input$municipality, ".csv")
+      paste0("no2_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_no2(), file)
+      write_csv2(mun_data_no2() |> rename(`no2` = value), file)
+    }
+  )
+
+  output$download_data_no2_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_no2()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("no2_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_no2) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`no2` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
@@ -2626,14 +2986,50 @@ server <- function(input, output, session) {
   })
 
   # Download SO2
-  output$download_data_so2 <- downloadHandler(
+  output$download_data_so2_mun <- downloadHandler(
     filename = function() {
       res <- mun_data_so2()
       res <- format(min(res$date), "%Y%m%d_%H%M")
-      paste0("co_previsao_", res, "_", input$municipality, ".csv")
+      paste0("so2_previsao_", res, "_", input$municipality, ".csv")
     },
     content = function(file) {
-      write_csv2(mun_data_so2(), file)
+      write_csv2(mun_data_so2() |> rename(`so2` = value), file)
+    }
+  )
+
+  output$download_data_so2_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_so2()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("so2_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_so2) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`so2` = value)
+
+      write_csv2(res_3, file)
     }
   )
 
