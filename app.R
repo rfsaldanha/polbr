@@ -177,7 +177,7 @@ pal_temp <- colorBin(
 
 pal_uv <- colorBin(
   palette = "PuOr",
-  bins = c(0, 1, 2, 3, 5, 6, 7, 8, 10, 11, Inf),
+  bins = c(-Inf, 0, 3, 6, 8, 11, Inf),
   na.color = NA,
   reverse = TRUE
 )
