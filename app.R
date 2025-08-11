@@ -327,7 +327,7 @@ ui <- page_navbar(
           accordion_panel(
             "Descrição",
             HTML(
-              ""
+              "O Índice de Qualidade do Ar (IQAr), definido pelo Conselho Nacional do Meio Ambiente (CONAMA), é um indicador que sintetiza, em uma escala padronizada, a concentração de poluentes atmosféricos e seus potenciais efeitos na saúde humana e no meio ambiente. Calculado a partir de medições de poluentes-chave, como material particulado (PM₂.₅ e PM₁₀), ozônio (O₃), dióxido de nitrogênio (NO₂), dióxido de enxofre (SO₂) e monóxido de carbono (CO), o IQAr classifica a qualidade do ar em faixas que variam de “boa” a “péssima”."
             )
           )
         )
@@ -405,7 +405,7 @@ ui <- page_navbar(
           accordion_panel(
             "Descrição",
             HTML(
-              ""
+              "O material particulado inalável (PM 10) é constituído por partículas com diâmetro aerodinâmico igual ou inferior a 10 micrômetros, capazes de penetrar nas vias respiratórias superiores e médias, como nariz, faringe, laringe e brônquios. Embora não alcancem as regiões mais profundas dos pulmões com a mesma facilidade que o PM 2.5, essas partículas podem provocar irritação das mucosas, inflamação das vias aéreas e agravamento de doenças respiratórias como asma e bronquite. A exposição prolongada ao PM 10 está associada ao aumento de hospitalizações por doenças respiratórias e cardiovasculares, bem como ao incremento da mortalidade, especialmente entre crianças, idosos e indivíduos com condições crônicas. Suas principais fontes incluem poeira de solo, desgaste de pneus e freios, emissões veiculares, processos industriais e queimadas."
             )
           )
         )
@@ -444,7 +444,7 @@ ui <- page_navbar(
           accordion_panel(
             "Descrição",
             HTML(
-              "O ozônio ao nível do solo (ozônio troposférico) é um poluente. Diferente do ozônio estratosférico, que é benéfico para a redução do aquecimento global, o ozônio troposférico é prejudicial à saúde humana e ao meio ambiente. Em saúde pública, sua concentração elevada está associada a uma série de efeitos adversos, especialmente respiratórios e cardiovasculares.  O monitoramento do ozônio ao nível do solo é fundamental para a emissão de alertas de qualidade do ar, subsidiando políticas de controle da poluição atmosférica e estratégias preventivas voltadas à proteção da saúde da população exposta, especialmente em áreas urbanas e industrializadas."
+              "O ozônio ao nível do solo (ozônio troposférico) é um poluente secundário formado na baixa atmosfera. Diferente do ozônio estratosférico, que é benéfico para a redução do aquecimento global, o ozônio troposférico é prejudicial à saúde humana, provocando irritação e inflamação das vias respiratórias, reduzindo a função pulmonar e exacerbando doenças como asma e doença pulmonar. O monitoramento do ozônio ao nível do solo é fundamental para a emissão de alertas de qualidade do ar, subsidiando políticas de controle da poluição atmosférica e estratégias preventivas voltadas à proteção da saúde da população exposta, especialmente em áreas urbanas e industrializadas."
             )
           )
         )
@@ -522,7 +522,7 @@ ui <- page_navbar(
           accordion_panel(
             "Descrição",
             HTML(
-              ""
+              "O dióxido de nitrogênio (NO2) é um gás irritante resultante principalmente da combustão de combustíveis fósseis, com destaque para emissões veiculares e processos industriais. Altamente reativo, o NO2 penetra nas vias respiratórias, causando inflamação da mucosa brônquica, redução da função pulmonar e aumento da sensibilidade a infecções respiratórias. A exposição de curto prazo pode desencadear sintomas como tosse, chiado e dificuldade respiratória, enquanto a exposição prolongada está associada ao agravamento de doenças crônicas, como asma e doença pulmonar obstrutiva crônica (DPOC), além de aumentar o risco de hospitalizações e mortalidade por causas respiratórias e cardiovasculares. Crianças, idosos e pessoas com doenças pré-existentes são mais suscetíveis aos seus efeitos nocivos."
             )
           )
         )
@@ -561,7 +561,7 @@ ui <- page_navbar(
           accordion_panel(
             "Descrição",
             HTML(
-              ""
+              "O dióxido de enxofre (SO2) é um gás incolor produzido principalmente pela queima de combustíveis fósseis com alto teor de enxofre, como carvão e óleo, e por processos industriais, incluindo a fundição de minérios. Altamente solúvel em água, o SO2 reage rapidamente nas vias aéreas superiores, formando ácidos que irritam a mucosa respiratória e provocam broncoconstrição. A exposição aguda pode causar tosse, sensação de aperto no peito e dificuldade respiratória, especialmente em pessoas com asma ou outras doenças respiratórias crônicas. Em concentrações elevadas, pode desencadear crises asmáticas e aumentar hospitalizações por problemas respiratórios e cardiovasculares. A exposição crônica, mesmo a níveis moderados, está associada a inflamação persistente, declínio da função pulmonar e aumento do risco de mortalidade prematura."
             )
           )
         )
@@ -654,6 +654,31 @@ ui <- page_navbar(
     accordion(
       multiple = FALSE,
       accordion_panel(
+        "IQAr",
+        tabsetPanel(
+          tabPanel(
+            title = "Valores máximos",
+            DTOutput("rank_iqar_max")
+          ),
+          tabPanel(
+            title = "Horas acumuladas no nível moderado ou pior",
+            DTOutput(outputId = "rank_iqar_moderado")
+          ),
+          tabPanel(
+            title = "Horas acumuladas no nível ruim ou pior",
+            DTOutput("rank_iqar_ruim")
+          ),
+          tabPanel(
+            title = "Horas acumuladas no nível muito ruim ou pior",
+            DTOutput("rank_iqar_muito_ruim")
+          ),
+          tabPanel(
+            title = "Horas acumuladas no nível péssimo",
+            DTOutput("rank_iqar_pessimo")
+          )
+        )
+      ),
+      accordion_panel(
         "PM 2.5",
         tabsetPanel(
           tabPanel(
@@ -718,19 +743,7 @@ ui <- page_navbar(
             DTOutput("rank_uv_11")
           )
         )
-      ),
-      accordion_panel(
-        "Ozônio"
-      ),
-      accordion_panel(
-        "Monóxido de carbono"
-      ),
-      accordion_panel(
-        "Dióxido de nitrogênio"
-      ),
-      accordion_panel(
-        "Dióxido de enxofre"
-      ),
+      )
     )
   ),
 
@@ -742,19 +755,28 @@ ui <- page_navbar(
       accordion_panel(
         "Projeto",
         p(
-          "Este painel tem por objetivo apresentar a previsão de concentração de material particulado de 2,5 μg/m³ (PM2.5) por município."
+          "Este é um painel interativo de dados que apresenta estimativas futuras sobre a poluição atmosférica nos municípios brasileiros nas próximas 120 horas. A ferramenta apresenta resultados de modelos preditivos do Copernicus (CAMS) sobre a concentração de poluentes e calcula, à partir destes indicadores, uma projeção do Índice de Qualidade do Ar (IQAr) do CONAMA para os municípios brasileiros.  Além de permitir a visualização georreferenciada e comparativa das estimativas, o painel oferece alertas direcionados aos municípios quando os níveis previstos de poluição ultrapassam limites de segurança para a saúde. O painel tem por objetivo apoiar os gestores públicos na adoção de medidas preventivas e no planejamento de ações de mitigação, além de ampliar a transparência e o acesso da sociedade às informações ambientais, fortalecendo a capacidade de resposta frente a riscos à saúde pública associados à qualidade do ar."
+        ),
+        p(
+          "Desenvolvido pelo Observatório de Clima e Saúde, Laboratório de Informação em Saúde (LIS), Instituto de Comunicação e Informação Científica e Tecnológica em Saúde (ICICT), da Fundação Oswaldo Cruz (Fiocruz)."
         )
       ),
       accordion_panel(
-        "Fonte dos dados",
+        "Dados e métodos",
         p(
-          "Os dados de projeção de PM2.5 são obtidos diariamente duas vezes por dia consultando a API do Copernicus/CAMS. Uma atualização é feita a meia-noite e outra meio-dia."
+          "Os dados de previsão de poluentes e condições atmosféricas são obtidos diariamente por meio de consulta à API do programa Copernicus Atmosphere Monitoring Service (CAMS). Após a coleta, essas informações são convertidas para as unidades de análise apropriadas e utilizadas para o cálculo do Índice de Qualidade do Ar (IQAr), conforme os parâmetros do CONAMA."
+        ),
+        p(
+          "Os mapas de PM 2.5 e PM 10 apresentam, além do nível de concentração dos poluentes, o focos de calor identificados pelo programa BDQueimadas do INPE, dos últimos três dias."
+        ),
+        p(
+          "Os gráficos apresentados no painel representam a média espacial dos pixels de estimativas que intersectam o território de cada município."
         )
       ),
       accordion_panel(
-        "Método",
+        "Alertas",
         p(
-          "Em cada atualiazção de dados, a estimativa de 0 a 120 horas é obtida junto ao Copernicus/CAMS. Após o download dos dados, estes são processados e municipalizados utilizando a estatística zonal de média."
+          "Esta aba do painel apresenta rankings dos municípios para o IQAr, concentração de poluentes, Índice UV e temperatura. Os rankings indicam, para cada município, os valores máximos registrados e o número de horas acima dos valores de referência ao longo de todo o horizonte de previsão (120 horas)."
         )
       )
     )
@@ -2619,6 +2641,159 @@ server <- function(input, output, session) {
   )
 
   # Alerts
+  output$rank_iqar_max <- renderDT({
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_iqar) |>
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_iqar)
+    }
+
+    res |>
+      group_by(code_muni) |>
+      filter(value == max(value)) |>
+      ungroup() |>
+      arrange(-value) |>
+      collect() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      mutate(date = format(date, "%d/%m/%Y %H:%M")) |>
+      mutate(
+        `Classe` = case_when(
+          value >= 0 & value <= 40 ~ "N1 - Boa",
+          value > 40 & value <= 80 ~ "N2 - Moderada",
+          value > 80 & value <= 120 ~ "N3 - Ruim",
+          value > 120 & value <= 200 ~ "N4 - Muito ruim",
+          value > 200 ~ "N5 - Péssima",
+        )
+      ) |>
+      rename(`Município` = name_muni, `Data e hora` = date, `IQAr` = value)
+  })
+
+  output$rank_iqar_moderado <- renderDT({
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_iqar) |>
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_iqar)
+    }
+
+    res |>
+      mutate(ref = ifelse(value > 40, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      arrange(-freq) |>
+      collect() |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
+  })
+
+  output$rank_iqar_ruim <- renderDT({
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_iqar) |>
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_iqar)
+    }
+
+    res |>
+      mutate(ref = ifelse(value > 80, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      arrange(-freq) |>
+      collect() |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
+  })
+
+  output$rank_iqar_muito_ruim <- renderDT({
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_iqar) |>
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_iqar)
+    }
+
+    res |>
+      mutate(ref = ifelse(value > 120, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      arrange(-freq) |>
+      collect() |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
+  })
+
+  output$rank_iqar_pessimo <- renderDT({
+    req(input$uf)
+
+    if (input$uf != "Todas") {
+      uf_code <- ufs |>
+        filter(abbrev == input$uf) |>
+        pull(code)
+
+      res <- tbl(con, tb_iqar) |>
+        filter(substr(as.character(code_muni), 0, 2) == uf_code)
+    } else {
+      res <- tbl(con, tb_iqar)
+    }
+
+    res |>
+      mutate(ref = ifelse(value > 200, TRUE, FALSE)) |>
+      filter(ref == TRUE) |>
+      group_by(code_muni) |>
+      summarise(freq = n()) |>
+      ungroup() |>
+      mutate(code_muni = as.numeric(substr(as.character(code_muni), 0, 6))) |>
+      arrange(-freq) |>
+      collect() |>
+      left_join(ref_mun_names) |>
+      select(-code_muni) |>
+      relocate(name_muni) |>
+      rename(`Município` = name_muni, `Horas` = freq)
+  })
+
   output$rank_pm25_max <- renderDT({
     req(input$uf)
 
