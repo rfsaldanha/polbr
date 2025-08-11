@@ -696,9 +696,6 @@ ui <- page_navbar(
         )
       ),
       accordion_panel(
-        "PM 10"
-      ),
-      accordion_panel(
         "Temperatura",
         tabsetPanel(
           tabPanel(
@@ -2888,10 +2885,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_temp) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_temp)
     }
 
     res |>
@@ -2920,10 +2917,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_temp) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_temp)
     }
 
     res |>
@@ -2952,10 +2949,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_temp) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_temp)
     }
 
     res |>
@@ -2981,10 +2978,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_temp) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_temp)
     }
 
     res |>
@@ -3010,10 +3007,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_temp) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_temp)
     }
 
     res |>
@@ -3042,10 +3039,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_uv) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_uv)
     }
 
     res |>
@@ -3071,10 +3068,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_uv) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_uv)
     }
 
     res |>
@@ -3100,10 +3097,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_uv) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_uv)
     }
 
     res |>
@@ -3129,10 +3126,10 @@ server <- function(input, output, session) {
         filter(abbrev == input$uf) |>
         pull(code)
 
-      res <- tbl(con, tb_pm25) |>
+      res <- tbl(con, tb_uv) |>
         filter(substr(as.character(code_muni), 0, 2) == uf_code)
     } else {
-      res <- tbl(con, tb_pm25)
+      res <- tbl(con, tb_uv)
     }
 
     res |>
