@@ -69,6 +69,15 @@ rst_temp <- project(x = rst_temp, "EPSG:3857")
 rst_uv <- rast(path(data_dir, "cams_forecast_uv.nc")) * 40 # Wm2 to UVI
 rst_uv <- project(x = rst_uv, "EPSG:3857")
 
+rst_wind_speed <- rast(path(data_dir, "cams_forecast_wind_speed.nc"))
+rst_wind_speed <- project(x = rst_wind_speed, "EPSG:3857")
+
+rst_aerosol <- rast(path(data_dir, "cams_forecast_aerosol.nc"))
+rst_aerosol <- project(x = rst_aerosol, "EPSG:3857")
+
+rst_prec <- rast(path(data_dir, "cams_forecast_prec.nc")) * 1e3 # m to mm
+rst_prec <- project(x = rst_prec, "EPSG:3857")
+
 # Read municipality data
 mun_seats <- readRDS("data/mun_seats.rds")
 
@@ -213,6 +222,27 @@ pal_so2 <- colorBin(
   reverse = FALSE
 )
 
+pal_wind_speed <- colorBin(
+  palette = "viridis",
+  bins = c(0, 5, 10, 30, 50, 80, 100, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
+pal_aerosol <- colorBin(
+  palette = "magma",
+  bins = c(0, .1, .2, .3, .4, .6, .8, 1, 3, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
+pal_prec <- colorBin(
+  palette = "BuPu",
+  bins = c(0, 10, 20, 40, 60, 80, 100, Inf),
+  na.color = NA,
+  reverse = FALSE
+)
+
 # Interface
 ui <- page_navbar(
   title = "PolBR",
@@ -299,7 +329,7 @@ ui <- page_navbar(
     ),
   ),
 
-  # PM2.5
+  # IQAr
   nav_panel(
     title = "IQAr",
     page_fillable(
@@ -713,6 +743,144 @@ ui <- page_navbar(
     )
   ),
 
+  # Wind speed
+  nav_panel(
+    title = "Vel. vento",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_wind_speed")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_wind_speed")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(
+              outputId = "download_data_wind_speed_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_wind_speed_uf",
+              label = "UF selecionada"
+            )
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              ""
+            )
+          )
+        )
+      )
+    )
+  ),
+
+  # Aerosol
+  nav_panel(
+    title = "Aerosol",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_aerosol")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_aerosol")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(
+              outputId = "download_data_aerosol_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_aerosol_uf",
+              label = "UF selecionada"
+            )
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              ""
+            )
+          )
+        )
+      )
+    )
+  ),
+
+  # Precipitation
+  nav_panel(
+    title = "Precipitação",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_prec")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_prec")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(
+              outputId = "download_data_prec_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_prec_uf",
+              label = "UF selecionada"
+            )
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              ""
+            )
+          )
+        )
+      )
+    )
+  ),
+
   # Alerts page
   nav_panel(
     title = "Alertas",
@@ -1005,7 +1173,7 @@ server <- function(input, output, session) {
       )
   })
 
-  # Graph pm25
+  # Graph IQAr
   mun_data_iqar <- reactive({
     req(input$municipality)
 
@@ -2888,7 +3056,7 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_so2", session) |>
       addRasterImage(
-        x = rst_co[[depth]],
+        x = rst_so2[[depth]],
         opacity = .7,
         colors = pal_so2,
         layerId = "raster",
@@ -3034,6 +3202,726 @@ server <- function(input, output, session) {
         mutate(date = with_tz(date, "America/Sao_Paulo")) |>
         select(code_muni, name_muni, date, value) |>
         rename(`so2` = value)
+
+      write_csv2(res_3, file)
+    }
+  )
+
+  # Map wind speed initial state
+  output$map_wind_speed <- renderLeaflet({
+    req(input$municipality)
+    req(input$forecast)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_wind_speed)
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_wind_speed[[depth]],
+        opacity = .7,
+        colors = pal_wind_speed,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_wind_speed,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("Vel. vento (km/h)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map wind speed
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_wind_speed", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_wind_speed", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_wind_speed)
+
+    # Remove old layers
+    leafletProxy("map_wind_speed", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    # Update map
+    leafletProxy("map_wind_speed", session) |>
+      addRasterImage(
+        x = rst_wind_speed[[depth]],
+        opacity = .7,
+        colors = pal_wind_speed,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_wind_speed,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("Vel. vento (km/h)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Graph wind speed
+  mun_data_wind_speed <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_wind_speed) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_wind_speed <- renderPlot({
+    res <- mun_data_wind_speed()
+
+    vline_value <- unique(res$date)[input$forecast + 1]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Previsão de Vel. vento (km/h)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Elaboração: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    # if (input$conama_line == TRUE) {
+    #   g <- g +
+    #     geom_texthline(
+    #       yintercept = 40,
+    #       label = "N2 - Moderada",
+    #       hjust = 0.1,
+    #       color = "gold4",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 50,
+    #       label = "N3 - Ruim",
+    #       hjust = 0.1,
+    #       color = "darkorange",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 125,
+    #       label = "N4 - Muito ruim",
+    #       hjust = 0.1,
+    #       color = "red",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 800,
+    #       label = "N5 - Péssimo",
+    #       hjust = 0.1,
+    #       color = "purple",
+    #       linetype = "dashed"
+    #     )
+    # }
+
+    g
+  })
+
+  # Download wind speed
+  output$download_data_wind_speed_mun <- downloadHandler(
+    filename = function() {
+      res <- mun_data_wind_speed()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+      paste0("velocidade_vento_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data_wind_speed() |> rename(`wind_speed` = value), file)
+    }
+  )
+
+  output$download_data_wind_speed_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_wind_speed()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("velocidade_vento_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_wind_speed) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`wind_speed` = value)
+
+      write_csv2(res_3, file)
+    }
+  )
+
+  # Map aerosol initial state
+  output$map_aerosol <- renderLeaflet({
+    req(input$municipality)
+    req(input$forecast)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_aerosol)
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_aerosol[[depth]],
+        opacity = .7,
+        colors = pal_aerosol,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_aerosol,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("Aerosol (org.) 550nm")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map aerosol
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_aerosol", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_aerosol", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_aerosol)
+
+    # Remove old layers
+    leafletProxy("map_aerosol", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    # Update map
+    leafletProxy("map_aerosol", session) |>
+      addRasterImage(
+        x = rst_aerosol[[depth]],
+        opacity = .7,
+        colors = pal_aerosol,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_aerosol,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("Aerosol (org.) 550nm")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Graph aerosol
+  mun_data_aerosol <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_aerosol) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_aerosol <- renderPlot({
+    res <- mun_data_aerosol()
+
+    vline_value <- unique(res$date)[input$forecast + 1]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Aerosol (org.) 550nm",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Elaboração: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    # if (input$conama_line == TRUE) {
+    #   g <- g +
+    #     geom_texthline(
+    #       yintercept = 40,
+    #       label = "N2 - Moderada",
+    #       hjust = 0.1,
+    #       color = "gold4",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 50,
+    #       label = "N3 - Ruim",
+    #       hjust = 0.1,
+    #       color = "darkorange",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 125,
+    #       label = "N4 - Muito ruim",
+    #       hjust = 0.1,
+    #       color = "red",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 800,
+    #       label = "N5 - Péssimo",
+    #       hjust = 0.1,
+    #       color = "purple",
+    #       linetype = "dashed"
+    #     )
+    # }
+
+    g
+  })
+
+  # Download aerosol
+  output$download_data_aerosol_mun <- downloadHandler(
+    filename = function() {
+      res <- mun_data_aerosol()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+      paste0("aerosol_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data_aerosol() |> rename(`aerosol` = value), file)
+    }
+  )
+
+  output$download_data_aerosol_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_aerosol()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("aerosol_vento_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_aerosol) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`wind_speed` = value)
+
+      write_csv2(res_3, file)
+    }
+  )
+
+  # Map precipitation initial state
+  output$map_prec <- renderLeaflet({
+    req(input$municipality)
+    req(input$forecast)
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Palette
+    mm <- minmax(rst_prec)
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    leaflet() |>
+      addTiles(group = "Open Street Maps") |>
+      addProviderTiles(
+        providers$Esri.WorldImagery,
+        group = "Imagem de satélite"
+      ) |>
+      fitBounds(-71.10, 6.06, -32.20, -34.17) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
+      addRasterImage(
+        x = rst_prec[[depth]],
+        opacity = .7,
+        colors = pal_prec,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_aerosol,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("Precipitação (mm)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Update municipality marker on map precipitation
+  observeEvent(input$municipality, {
+    req(input$municipality)
+
+    # Remove old layer
+    leafletProxy("map_prec", session) |>
+      removeMarker(layerId = "mun_marker")
+
+    # Municipality coordinates
+    coord <- mun_seats |>
+      filter(code_muni == input$municipality) |>
+      st_coordinates() |>
+      as.vector()
+
+    # Update map
+    leafletProxy("map_prec", session) |>
+      addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
+  })
+
+  # Update raster and date text on map
+  observeEvent(input$forecast, {
+    # Palette
+    mm <- minmax(rst_prec)
+
+    # Remove old layers
+    leafletProxy("map_prec", session) |>
+      removeImage(layerId = "raster") |>
+      removeControl(layerId = "legend") |>
+      removeControl(layerId = "title")
+
+    # Depth (forecast)
+    depth <- input$forecast + 1
+
+    # Update map
+    leafletProxy("map_prec", session) |>
+      addRasterImage(
+        x = rst_prec[[depth]],
+        opacity = .7,
+        colors = pal_prec,
+        layerId = "raster",
+        project = FALSE,
+        group = "raster"
+      ) |>
+      addLegend(
+        pal = pal_prec,
+        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+        layerId = "legend",
+        title = paste0("Precipitação (mm)")
+      ) |>
+      # Layers control
+      addLayersControl(
+        baseGroups = c(
+          "Open Street Maps",
+          "Imagem de satélite"
+        ),
+        overlayGroups = c("raster"),
+        options = layersControlOptions(
+          collapsed = TRUE,
+          position = "bottomleft"
+        )
+      )
+  })
+
+  # Graph precipitation
+  mun_data_prec <- reactive({
+    req(input$municipality)
+
+    tbl(con, tb_prec) |>
+      mutate(code_muni = substr(as.character(code_muni), 0, 6)) |>
+      filter(code_muni == !!input$municipality) |>
+      collect() |>
+      mutate(date = with_tz(date, "America/Sao_Paulo"))
+  })
+
+  output$graph_prec <- renderPlot({
+    res <- mun_data_prec()
+
+    vline_value <- unique(res$date)[input$forecast + 1]
+
+    g <- ggplot(data = res, aes(x = date, y = value)) +
+      geom_line(col = "red", lwd = 1) +
+      geom_vline(xintercept = vline_value, col = "gray50") +
+      ylim(c(0, NA)) +
+      scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
+      labs(
+        title = "Precipitation (mm)",
+        subtitle = paste0(names(mun_names[mun_names == input$municipality])),
+        caption = paste0(
+          "Previsão atmosférica: Copernicus/CAMS\n",
+          "Atualização: ",
+          format(min(res$date), "%d/%m/%Y %H:%M"),
+          "\n",
+          "Elaboração: LIS/ICICT/Fiocruz"
+        ),
+        x = "Data e hora",
+        y = "Valor previsto"
+      ) +
+      theme_light()
+
+    if (input$trend_line == TRUE) {
+      g <- g +
+        geom_smooth(color = "purple", se = TRUE, size = 0.7)
+    }
+
+    # if (input$conama_line == TRUE) {
+    #   g <- g +
+    #     geom_texthline(
+    #       yintercept = 40,
+    #       label = "N2 - Moderada",
+    #       hjust = 0.1,
+    #       color = "gold4",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 50,
+    #       label = "N3 - Ruim",
+    #       hjust = 0.1,
+    #       color = "darkorange",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 125,
+    #       label = "N4 - Muito ruim",
+    #       hjust = 0.1,
+    #       color = "red",
+    #       linetype = "dashed"
+    #     ) +
+    #     geom_texthline(
+    #       yintercept = 800,
+    #       label = "N5 - Péssimo",
+    #       hjust = 0.1,
+    #       color = "purple",
+    #       linetype = "dashed"
+    #     )
+    # }
+
+    g
+  })
+
+  # Download precipitation
+  output$download_data_prec_mun <- downloadHandler(
+    filename = function() {
+      res <- mun_data_prec()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+      paste0("precipitacao_previsao_", res, "_", input$municipality, ".csv")
+    },
+    content = function(file) {
+      write_csv2(mun_data_prec() |> rename(`precipitation` = value), file)
+    }
+  )
+
+  output$download_data_prec_uf <- downloadHandler(
+    filename = function() {
+      res <- mun_data_prec()
+      res <- format(min(res$date), "%Y%m%d_%H%M")
+
+      paste0("precipitacao_vento_previsao_", res, "_", input$uf, ".csv")
+    },
+    content = function(file) {
+      res_1 <- tbl(con, tb_prec) |>
+        mutate(
+          code_muni = as.numeric(substr(as.character(code_muni), 0, 6)),
+          uf = substr(as.character(code_muni), 0, 2)
+        )
+
+      if (input$uf == "Todas") {
+        res_2 <- res_1 |>
+          arrange(code_muni, date) |>
+          collect()
+      } else {
+        uf_code <- ufs[ufs$abbrev == input$uf, ]$code
+        res_2 <- res_1 |>
+          filter(uf == uf_code) |>
+          arrange(code_muni, date) |>
+          collect()
+      }
+
+      res_3 <- res_2 |>
+        left_join(ref_mun_names, by = "code_muni") |>
+        mutate(date = with_tz(date, "America/Sao_Paulo")) |>
+        select(code_muni, name_muni, date, value) |>
+        rename(`wind_speed` = value)
 
       write_csv2(res_3, file)
     }
