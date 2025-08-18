@@ -28,7 +28,7 @@ con <- dbConnect(
 )
 
 # Table
-tb_iqar <- "iqar_forecast"
+tb_iqar <- "iqar_mun_forecast"
 tb_pm25 <- "pm25_mun_forecast"
 tb_pm10 <- "pm10_mun_forecast"
 tb_o3 <- "o3_mun_forecast"
