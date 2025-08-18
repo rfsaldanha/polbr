@@ -37,6 +37,9 @@ tb_no2 <- "no2_mun_forecast"
 tb_so2 <- "so2_mun_forecast"
 tb_temp <- "temp_mun_forecast"
 tb_uv <- "uv_mun_forecast"
+tb_wind_speed <- "wind_speed_mun_forecast"
+tb_aerosol <- "aerosol_mun_forecast"
+tb_prec <- "prec_mun_forecast"
 
 # Read forecast rasters
 rst_iqar <- rast(path(data_dir, "iqar.nc"))
