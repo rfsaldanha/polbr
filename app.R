@@ -231,9 +231,9 @@ pal_wind_speed <- colorBin(
 
 pal_aerosol <- colorBin(
   palette = "magma",
-  bins = c(0, .1, .2, .3, .4, .6, .8, 1, 3, Inf),
+  bins = c(.1, .2, .3, .4, .6, .8, 1, 3, Inf),
   na.color = NA,
-  reverse = FALSE
+  reverse = TRUE
 )
 
 pal_prec <- colorBin(
@@ -3721,10 +3721,10 @@ server <- function(input, output, session) {
         group = "raster"
       ) |>
       addLegend(
-        pal = pal_aerosol,
+        pal = pal_prec,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
         layerId = "legend",
-        title = paste0("Precipitação (mm)")
+        title = paste0("Precipitação acum. (mm)")
       ) |>
       # Layers control
       addLayersControl(
@@ -3825,7 +3825,7 @@ server <- function(input, output, session) {
       ylim(c(0, NA)) +
       scale_x_datetime(date_labels = "%d %b", date_breaks = "1 day") +
       labs(
-        title = "Precipitation (mm)",
+        title = "Precipitação acumulada (mm)",
         subtitle = paste0(names(mun_names[mun_names == input$municipality])),
         caption = paste0(
           "Previsão atmosférica: Copernicus/CAMS\n",
