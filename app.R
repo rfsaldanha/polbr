@@ -2331,6 +2331,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_o3,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -2343,7 +2349,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster"),
+        overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
@@ -2378,6 +2384,7 @@ server <- function(input, output, session) {
     # Remove old layers
     leafletProxy("map_o3", session) |>
       removeImage(layerId = "raster") |>
+      removeVelocity(group = "vento") |>
       removeControl(layerId = "legend") |>
       removeControl(layerId = "title")
 
@@ -2394,6 +2401,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_o3,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -2406,7 +2419,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster"),
+        overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
@@ -2557,6 +2570,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_co,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -2569,7 +2588,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster"),
+        overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
@@ -2604,6 +2623,7 @@ server <- function(input, output, session) {
     # Remove old layers
     leafletProxy("map_co", session) |>
       removeImage(layerId = "raster") |>
+      removeVelocity(group = "vento") |>
       removeControl(layerId = "legend") |>
       removeControl(layerId = "title")
 
@@ -2620,6 +2640,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_co,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -2632,7 +2658,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster"),
+        overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
