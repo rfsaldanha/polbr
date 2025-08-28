@@ -168,14 +168,14 @@ pal_iqar <- colorBin(
 
 pal_pm25 <- colorBin(
   palette = "YlOrRd",
-  bins = c(0, 15, 50, 75, 125, Inf),
+  bins = c(0, 15, 25, 37, 50, 60, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_pm10 <- colorBin(
   palette = "YlOrBr",
-  bins = c(0, 45, 100, 150, 250, Inf),
+  bins = c(0, 45, 50, 75, 100, 120, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -196,7 +196,7 @@ pal_uv <- colorBin(
 
 pal_o3 <- colorBin(
   palette = "RdPu",
-  bins = c(0, 100, 130, 160, 200, Inf),
+  bins = c(0, 100, 120, 130, 140, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -210,14 +210,14 @@ pal_co <- colorBin(
 
 pal_no2 <- colorBin(
   palette = "BuPu",
-  bins = c(0, 200, 240, 320, 1130, Inf),
+  bins = c(0, 200, 220, 240, 260, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_so2 <- colorBin(
   palette = "PuBuGn",
-  bins = c(0, 40, 50, 125, 800, Inf),
+  bins = c(0, 40, 50, 125, Inf),
   na.color = NA,
   reverse = FALSE
 )
