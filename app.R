@@ -7,6 +7,7 @@ library(dplyr)
 library(lubridate)
 library(sf)
 library(leaflet)
+library(leaflet.extras2)
 library(DBI)
 library(duckdb)
 library(ggplot2)
@@ -77,6 +78,18 @@ rst_aerosol <- project(x = rst_aerosol, "EPSG:3857")
 
 rst_prec <- rast(path(data_dir, "cams_forecast_prec.nc")) * 1e3 # m to mm
 rst_prec <- project(x = rst_prec, "EPSG:3857")
+
+# Wind files
+wind_files <- path(data_dir, paste0("wind_", 1:121, ".json"))
+
+# Wind map options
+wind_opts <- velocityOptions(
+  speedUnit = "k/h",
+  colorScale = colorRampPalette(c("gray50", "black"), alpha = TRUE)(5),
+  minVelocity = 0,
+  maxVelocity = 100,
+  velocityScale = 0.002
+)
 
 # Read municipality data
 mun_seats <- readRDS("data/mun_seats.rds")
@@ -1348,6 +1361,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_pm25,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -1360,7 +1379,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster", "INPE/BDQueimadas"),
+        overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
@@ -1395,6 +1414,7 @@ server <- function(input, output, session) {
     # Remove old layers
     leafletProxy("map_pm25", session) |>
       removeImage(layerId = "raster") |>
+      # removeVelocity(group = "vento") |>
       removeControl(layerId = "legend") |>
       removeControl(layerId = "title")
 
@@ -1411,6 +1431,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_pm25,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -1423,7 +1449,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster", "INPE/BDQueimadas"),
+        overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
