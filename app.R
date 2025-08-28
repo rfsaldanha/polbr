@@ -1623,6 +1623,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_pm10,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -1635,7 +1641,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster", "INPE/BDQueimadas"),
+        overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
@@ -1686,6 +1692,12 @@ server <- function(input, output, session) {
         project = FALSE,
         group = "raster"
       ) |>
+      addVelocity(
+        content = wind_files[depth],
+        group = "vento",
+        layerId = "vento",
+        options = wind_opts
+      ) |>
       addLegend(
         pal = pal_pm10,
         values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
@@ -1698,7 +1710,7 @@ server <- function(input, output, session) {
           "Open Street Maps",
           "Imagem de satélite"
         ),
-        overlayGroups = c("raster", "INPE/BDQueimadas"),
+        overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
         options = layersControlOptions(
           collapsed = TRUE,
           position = "bottomleft"
