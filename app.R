@@ -1476,30 +1476,16 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 15,
-          label = "N2 - Moderada",
+          label = "PF - Meta",
           hjust = 0.1,
           color = "gold4",
           linetype = "dashed"
         ) +
         geom_texthline(
           yintercept = 50,
-          label = "N3 - Ruim",
+          label = "PI-2 (2025)",
           hjust = 0.1,
           color = "darkorange",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 75,
-          label = "N4 - Muito ruim",
-          hjust = 0.1,
-          color = "red",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 125,
-          label = "N5 - Péssimo",
-          hjust = 0.1,
-          color = "purple",
           linetype = "dashed"
         )
     }
@@ -1725,30 +1711,16 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 45,
-          label = "N2 - Moderada",
+          label = "PF - Meta",
           hjust = 0.1,
           color = "gold4",
           linetype = "dashed"
         ) +
         geom_texthline(
           yintercept = 100,
-          label = "N3 - Ruim",
+          label = "PI-2 (2025)",
           hjust = 0.1,
           color = "darkorange",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 150,
-          label = "N4 - Muito ruim",
-          hjust = 0.1,
-          color = "red",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 250,
-          label = "N5 - Péssimo",
-          hjust = 0.1,
-          color = "purple",
           linetype = "dashed"
         )
     }
@@ -2408,30 +2380,16 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 100,
-          label = "N2 - Moderada",
+          label = "PF - Meta",
           hjust = 0.1,
           color = "gold4",
           linetype = "dashed"
         ) +
         geom_texthline(
           yintercept = 130,
-          label = "N3 - Ruim",
+          label = "PI-2 (2025)",
           hjust = 0.1,
           color = "darkorange",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 160,
-          label = "N4 - Muito ruim",
-          hjust = 0.1,
-          color = "red",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 200,
-          label = "N5 - Péssimo",
-          hjust = 0.1,
-          color = "purple",
           linetype = "dashed"
         )
     }
@@ -2648,30 +2606,9 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 9,
-          label = "N2 - Moderada",
+          label = "PF - Meta",
           hjust = 0.1,
           color = "gold4",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 11,
-          label = "N3 - Ruim",
-          hjust = 0.1,
-          color = "darkorange",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 13,
-          label = "N4 - Muito ruim",
-          hjust = 0.1,
-          color = "red",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 15,
-          label = "N5 - Péssimo",
-          hjust = 0.1,
-          color = "purple",
           linetype = "dashed"
         )
     }
@@ -2888,30 +2825,16 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 200,
-          label = "N2 - Moderada",
+          label = "PF - Meta",
           hjust = 0.1,
           color = "gold4",
           linetype = "dashed"
         ) +
         geom_texthline(
           yintercept = 240,
-          label = "N3 - Ruim",
+          label = "PI-2 (2025)",
           hjust = 0.1,
           color = "darkorange",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 320,
-          label = "N4 - Muito ruim",
-          hjust = 0.1,
-          color = "red",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 1130,
-          label = "N5 - Péssimo",
-          hjust = 0.1,
-          color = "purple",
           linetype = "dashed"
         )
     }
@@ -3128,30 +3051,16 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 40,
-          label = "N2 - Moderada",
+          label = "PF - Meta",
           hjust = 0.1,
           color = "gold4",
           linetype = "dashed"
         ) +
         geom_texthline(
           yintercept = 50,
-          label = "N3 - Ruim",
+          label = "PI-2 (2025)",
           hjust = 0.1,
           color = "darkorange",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 125,
-          label = "N4 - Muito ruim",
-          hjust = 0.1,
-          color = "red",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 800,
-          label = "N5 - Péssimo",
-          hjust = 0.1,
-          color = "purple",
           linetype = "dashed"
         )
     }
@@ -3604,37 +3513,23 @@ server <- function(input, output, session) {
         geom_smooth(color = "purple", se = TRUE, size = 0.7)
     }
 
-    # if (input$conama_line == TRUE) {
-    #   g <- g +
-    #     geom_texthline(
-    #       yintercept = 40,
-    #       label = "N2 - Moderada",
-    #       hjust = 0.1,
-    #       color = "gold4",
-    #       linetype = "dashed"
-    #     ) +
-    #     geom_texthline(
-    #       yintercept = 50,
-    #       label = "N3 - Ruim",
-    #       hjust = 0.1,
-    #       color = "darkorange",
-    #       linetype = "dashed"
-    #     ) +
-    #     geom_texthline(
-    #       yintercept = 125,
-    #       label = "N4 - Muito ruim",
-    #       hjust = 0.1,
-    #       color = "red",
-    #       linetype = "dashed"
-    #     ) +
-    #     geom_texthline(
-    #       yintercept = 800,
-    #       label = "N5 - Péssimo",
-    #       hjust = 0.1,
-    #       color = "purple",
-    #       linetype = "dashed"
-    #     )
-    # }
+    if (input$conama_line == TRUE) {
+      g <- g +
+        geom_texthline(
+          yintercept = 45,
+          label = "PF - Meta",
+          hjust = 0.1,
+          color = "gold4",
+          linetype = "dashed"
+        ) +
+        geom_texthline(
+          yintercept = 100,
+          label = "PI-2 (2025)",
+          hjust = 0.1,
+          color = "darkorange",
+          linetype = "dashed"
+        )
+    }
 
     g
   })
