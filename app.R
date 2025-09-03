@@ -945,6 +945,68 @@ ui <- page_navbar(
     )
   ),
 
+  # Historical data
+  nav_panel(
+    title = "Dados históricos",
+    accordion(
+      multiple = FALSE,
+      accordion_panel(
+        "Dados históricos de poluição por município",
+        p(
+          "O Copernicus disponibiliza dados históricos de poluentes do ar (CAMS global reanalysis - EAC4) à partir do ano de 2003. Com esses dados, estatísticas zonais foram criadas para os municípios brasileiros. Os links abaixo permitem o download destes dados nos formatos CSV e parquet."
+        )
+      ),
+      accordion_panel(
+        "PM 2.5",
+        tags$a(
+          "2003 - 2024",
+          target = "_blank",
+          href = "https://zenodo.org/records/16374139"
+        )
+      ),
+      accordion_panel(
+        "PM 10",
+        tags$a(
+          "2003 - 2024",
+          target = "_blank",
+          href = "https://zenodo.org/records/16419737"
+        )
+      ),
+      accordion_panel(
+        "O3",
+        tags$a(
+          "2003 - 2024",
+          target = "_blank",
+          href = "https://zenodo.org/records/17025187"
+        )
+      ),
+      accordion_panel(
+        "CO",
+        tags$a(
+          "2003 - 2024",
+          target = "_blank",
+          href = "https://zenodo.org/records/16984341"
+        )
+      ),
+      accordion_panel(
+        "NO2",
+        tags$a(
+          "2003 - 2024",
+          target = "_blank",
+          href = "https://zenodo.org/records/17019753"
+        )
+      ),
+      accordion_panel(
+        "SO2",
+        tags$a(
+          "2003 - 2024",
+          target = "_blank",
+          href = "https://zenodo.org/records/17047073"
+        )
+      )
+    )
+  ),
+
   # About page
   nav_panel(
     title = "Sobre",
@@ -979,6 +1041,22 @@ ui <- page_navbar(
         p(
           "Esta aba do painel apresenta rankings dos municípios para o IQAr, concentração de poluentes, Índice UV e temperatura. Os rankings indicam, para cada município, os valores máximos registrados e o número de horas acima dos valores de referência ao longo de todo o horizonte de previsão (120 horas)."
         )
+      ),
+      accordion_panel(
+        "Código aberto",
+        p(
+          "Os repositórios de códigos deste projeto são abertos, disponíveis nos links abaixo."
+        ),
+        p(tags$a(
+          "Rotinas de download e processamento de dados",
+          target = "_blank",
+          href = "https://github.com/rfsaldanha/camsdata"
+        )),
+        p(tags$a(
+          "Aplicação em R Shiny",
+          target = "_blank",
+          href = "https://github.com/rfsaldanha/polbr"
+        )),
       )
     )
   )
