@@ -258,6 +258,8 @@ pal_prec <- colorBin(
 
 # Interface
 ui <- page_navbar(
+  tags$head(includeHTML("google-analytics.html")),
+
   title = "PolBR",
   theme = bs_theme(bootswatch = "shiny"),
 
