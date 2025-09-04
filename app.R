@@ -181,14 +181,14 @@ pal_iqar <- colorBin(
 
 pal_pm25 <- colorBin(
   palette = "YlOrRd",
-  bins = c(0, 15, 25, 37, 50, 60, Inf),
+  bins = c(15, 25, 37.5, 50, 75, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_pm10 <- colorBin(
   palette = "YlOrBr",
-  bins = c(0, 45, 50, 75, 100, 120, Inf),
+  bins = c(45, 50, 75, 100, 150, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -209,7 +209,7 @@ pal_uv <- colorBin(
 
 pal_o3 <- colorBin(
   palette = "RdPu",
-  bins = c(0, 100, 120, 130, 140, Inf),
+  bins = c(100, 120, 160, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -223,7 +223,7 @@ pal_co <- colorBin(
 
 pal_no2 <- colorBin(
   palette = "BuPu",
-  bins = c(0, 200, 220, 240, 260, Inf),
+  bins = c(25, 50, 120, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -712,6 +712,52 @@ ui <- page_navbar(
     )
   ),
 
+  # IUV
+  nav_panel(
+    title = "IUV",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_uv")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_uv")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(
+              outputId = "download_data_uv_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_uv_uf",
+              label = "UF selecionada"
+            )
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              "O Índice Ultravioleta (Índice UV) é um indicador que quantifica a intensidade da radiação solar ultravioleta na superfície da Terra, sendo fundamental para avaliar o risco de danos à saúde causados pela exposição excessiva ao sol. Esse índice é amplamente utilizado para orientar a população sobre medidas de proteção solar, especialmente em horários de maior radiação, contribuindo para a prevenção de doenças como câncer de pele, queimaduras, envelhecimento precoce e danos oculares, como catarata. O monitoramento do Índice UV permite a emissão de alertas diários e sazonais, facilitando a adoção de comportamentos preventivos, como o uso de protetor solar, roupas adequadas e a limitação da exposição ao sol."
+            )
+          )
+        )
+      )
+    )
+  ),
+
   # Temperature
   nav_panel(
     title = "Temperatura",
@@ -751,52 +797,6 @@ ui <- page_navbar(
             "Descrição",
             HTML(
               "A temperatura do ar é um dos principais determinantes climáticos com impacto direto e indireto na saúde humana. O monitoramento das variações de temperatura é essencial para compreender e prevenir agravos relacionados ao calor extremo, como desidratação, insolação, agravamento de doenças cardiovasculares e respiratórias, além de aumento da mortalidade em populações vulneráveis, como idosos e crianças. Ondas de calor têm sido associadas a surtos de morbimortalidade em diversas regiões do mundo, enquanto temperaturas mais baixas também podem aumentar o risco de infecções respiratórias. Além disso, a temperatura influencia a dinâmica de vetores de doenças, como os mosquitos transmissores da dengue, zika e chikungunya. A análise de padrões térmicos é fundamental para o planejamento de ações de vigilância em saúde, desenvolvimento de sistemas de alerta precoce e formulação de políticas de adaptação às mudanças climáticas."
-            )
-          )
-        )
-      )
-    )
-  ),
-
-  # UV
-  nav_panel(
-    title = "IUV",
-    page_fillable(
-      layout_columns(
-        col_widths = c(6, 6),
-        # Map card
-        card(
-          full_screen = TRUE,
-          card_body(
-            class = "p-0", # Fill card, used for maps
-            leafletOutput(outputId = "map_uv")
-          )
-        ),
-
-        accordion(
-          multiple = FALSE,
-          accordion_panel(
-            "Gráfico",
-            card(
-              full_screen = TRUE,
-              plotOutput(outputId = "graph_uv")
-            )
-          ),
-          accordion_panel(
-            "Download",
-            downloadButton(
-              outputId = "download_data_uv_mun",
-              label = "Município selecionado"
-            ),
-            downloadButton(
-              outputId = "download_data_uv_uf",
-              label = "UF selecionada"
-            )
-          ),
-          accordion_panel(
-            "Descrição",
-            HTML(
-              "O Índice Ultravioleta (Índice UV) é um indicador que quantifica a intensidade da radiação solar ultravioleta na superfície da Terra, sendo fundamental para avaliar o risco de danos à saúde causados pela exposição excessiva ao sol. Esse índice é amplamente utilizado para orientar a população sobre medidas de proteção solar, especialmente em horários de maior radiação, contribuindo para a prevenção de doenças como câncer de pele, queimaduras, envelhecimento precoce e danos oculares, como catarata. O monitoramento do Índice UV permite a emissão de alertas diários e sazonais, facilitando a adoção de comportamentos preventivos, como o uso de protetor solar, roupas adequadas e a limitação da exposição ao sol."
             )
           )
         )
