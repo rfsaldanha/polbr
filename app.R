@@ -344,52 +344,6 @@ ui <- page_navbar(
     ),
   ),
 
-  # IQAr
-  nav_panel(
-    title = "IQAr",
-    page_fillable(
-      layout_columns(
-        col_widths = c(6, 6),
-        # Map card
-        card(
-          full_screen = TRUE,
-          card_body(
-            class = "p-0", # Fill card, used for maps
-            leafletOutput(outputId = "map_iqar")
-          )
-        ),
-
-        accordion(
-          multiple = FALSE,
-          accordion_panel(
-            "Gráfico",
-            card(
-              full_screen = TRUE,
-              plotOutput(outputId = "graph_iqar")
-            )
-          ),
-          accordion_panel(
-            "Download",
-            downloadButton(
-              outputId = "download_data_iqar_mun",
-              label = "Município selecionado"
-            ),
-            downloadButton(
-              outputId = "download_data_iqar_uf",
-              label = "UF selecionada"
-            )
-          ),
-          accordion_panel(
-            "Descrição",
-            HTML(
-              "O Índice de Qualidade do Ar (IQAr), definido pelo Conselho Nacional do Meio Ambiente (CONAMA), é um indicador que sintetiza, em uma escala padronizada, a concentração de poluentes atmosféricos e seus potenciais efeitos na saúde humana e no meio ambiente. Calculado a partir de medições de poluentes-chave, como material particulado (PM₂.₅ e PM₁₀), ozônio (O₃), dióxido de nitrogênio (NO₂), dióxido de enxofre (SO₂) e monóxido de carbono (CO), o IQAr classifica a qualidade do ar em faixas que variam de “boa” a “péssima”."
-            )
-          )
-        )
-      )
-    )
-  ),
-
   # PM2.5
   nav_panel(
     title = "PM 2.5",
@@ -475,6 +429,52 @@ ui <- page_navbar(
             "Descrição",
             HTML(
               "O material particulado inalável (PM 10) é constituído por partículas com diâmetro aerodinâmico igual ou inferior a 10 micrômetros, capazes de penetrar nas vias respiratórias superiores e médias, como nariz, faringe, laringe e brônquios. Embora não alcancem as regiões mais profundas dos pulmões com a mesma facilidade que o PM 2.5, essas partículas podem provocar irritação das mucosas, inflamação das vias aéreas e agravamento de doenças respiratórias como asma e bronquite. A exposição prolongada ao PM 10 está associada ao aumento de hospitalizações por doenças respiratórias e cardiovasculares, bem como ao incremento da mortalidade, especialmente entre crianças, idosos e indivíduos com condições crônicas. Suas principais fontes incluem poeira de solo, desgaste de pneus e freios, emissões veiculares, processos industriais e queimadas."
+            )
+          )
+        )
+      )
+    )
+  ),
+
+  # Aerosol
+  nav_panel(
+    title = "Aerosol",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_aerosol")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_aerosol")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(
+              outputId = "download_data_aerosol_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_aerosol_uf",
+              label = "UF selecionada"
+            )
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              ""
             )
           )
         )
@@ -666,6 +666,52 @@ ui <- page_navbar(
     )
   ),
 
+  # IQAr
+  nav_panel(
+    title = "IQAr",
+    page_fillable(
+      layout_columns(
+        col_widths = c(6, 6),
+        # Map card
+        card(
+          full_screen = TRUE,
+          card_body(
+            class = "p-0", # Fill card, used for maps
+            leafletOutput(outputId = "map_iqar")
+          )
+        ),
+
+        accordion(
+          multiple = FALSE,
+          accordion_panel(
+            "Gráfico",
+            card(
+              full_screen = TRUE,
+              plotOutput(outputId = "graph_iqar")
+            )
+          ),
+          accordion_panel(
+            "Download",
+            downloadButton(
+              outputId = "download_data_iqar_mun",
+              label = "Município selecionado"
+            ),
+            downloadButton(
+              outputId = "download_data_iqar_uf",
+              label = "UF selecionada"
+            )
+          ),
+          accordion_panel(
+            "Descrição",
+            HTML(
+              "O Índice de Qualidade do Ar (IQAr), definido pelo Conselho Nacional do Meio Ambiente (CONAMA), é um indicador que sintetiza, em uma escala padronizada, a concentração de poluentes atmosféricos e seus potenciais efeitos na saúde humana e no meio ambiente. Calculado a partir de medições de poluentes-chave, como material particulado (PM₂.₅ e PM₁₀), ozônio (O₃), dióxido de nitrogênio (NO₂), dióxido de enxofre (SO₂) e monóxido de carbono (CO), o IQAr classifica a qualidade do ar em faixas que variam de “boa” a “péssima”."
+            )
+          )
+        )
+      )
+    )
+  ),
+
   # Temperature
   nav_panel(
     title = "Temperatura",
@@ -751,52 +797,6 @@ ui <- page_navbar(
             "Descrição",
             HTML(
               "O Índice Ultravioleta (Índice UV) é um indicador que quantifica a intensidade da radiação solar ultravioleta na superfície da Terra, sendo fundamental para avaliar o risco de danos à saúde causados pela exposição excessiva ao sol. Esse índice é amplamente utilizado para orientar a população sobre medidas de proteção solar, especialmente em horários de maior radiação, contribuindo para a prevenção de doenças como câncer de pele, queimaduras, envelhecimento precoce e danos oculares, como catarata. O monitoramento do Índice UV permite a emissão de alertas diários e sazonais, facilitando a adoção de comportamentos preventivos, como o uso de protetor solar, roupas adequadas e a limitação da exposição ao sol."
-            )
-          )
-        )
-      )
-    )
-  ),
-
-  # Aerosol
-  nav_panel(
-    title = "Aerosol",
-    page_fillable(
-      layout_columns(
-        col_widths = c(6, 6),
-        # Map card
-        card(
-          full_screen = TRUE,
-          card_body(
-            class = "p-0", # Fill card, used for maps
-            leafletOutput(outputId = "map_aerosol")
-          )
-        ),
-
-        accordion(
-          multiple = FALSE,
-          accordion_panel(
-            "Gráfico",
-            card(
-              full_screen = TRUE,
-              plotOutput(outputId = "graph_aerosol")
-            )
-          ),
-          accordion_panel(
-            "Download",
-            downloadButton(
-              outputId = "download_data_aerosol_mun",
-              label = "Município selecionado"
-            ),
-            downloadButton(
-              outputId = "download_data_aerosol_uf",
-              label = "UF selecionada"
-            )
-          ),
-          accordion_panel(
-            "Descrição",
-            HTML(
-              ""
             )
           )
         )
