@@ -260,7 +260,7 @@ pal_prec <- colorBin(
 ui <- page_navbar(
   tags$head(includeHTML("google-analytics.html")),
 
-  title = "PolBR",
+  title = "MonitorAr Brasil",
   theme = bs_theme(bootswatch = "shiny"),
 
   # Logo
