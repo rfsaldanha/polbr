@@ -328,7 +328,7 @@ ui <- page_navbar(
       min = 0,
       max = 120,
       step = 3,
-      value = 24,
+      value = 12,
       animate = TRUE
     ),
     uiOutput(outputId = "forecast_time"),
