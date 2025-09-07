@@ -339,7 +339,7 @@ ui <- page_navbar(
     ),
     checkboxInput(
       inputId = "conama_line",
-      label = "Parâmetros CONAMA",
+      label = "Limites de referência",
       value = TRUE
     ),
   ),
@@ -1550,16 +1550,9 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 15,
-          label = "PF - Meta",
+          label = "OMS",
           hjust = 0.1,
           color = "gold4",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 50,
-          label = "PI-2 (2025)",
-          hjust = 0.1,
-          color = "darkorange",
           linetype = "dashed"
         )
     }
@@ -1798,16 +1791,9 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 45,
-          label = "PF - Meta",
+          label = "OMS",
           hjust = 0.1,
           color = "gold4",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 100,
-          label = "PI-2 (2025)",
-          hjust = 0.1,
-          color = "darkorange",
           linetype = "dashed"
         )
     }
@@ -2506,16 +2492,9 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 100,
-          label = "PF - Meta",
+          label = "OMS",
           hjust = 0.1,
           color = "gold4",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 130,
-          label = "PI-2 (2025)",
-          hjust = 0.1,
-          color = "darkorange",
           linetype = "dashed"
         )
     }
@@ -2976,17 +2955,10 @@ server <- function(input, output, session) {
     if (input$conama_line == TRUE) {
       g <- g +
         geom_texthline(
-          yintercept = 200,
-          label = "PF - Meta",
+          yintercept = 25,
+          label = "OMS",
           hjust = 0.1,
           color = "gold4",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 240,
-          label = "PI-2 (2025)",
-          hjust = 0.1,
-          color = "darkorange",
           linetype = "dashed"
         )
     }
@@ -3216,16 +3188,9 @@ server <- function(input, output, session) {
       g <- g +
         geom_texthline(
           yintercept = 40,
-          label = "PF - Meta",
+          label = "OMS",
           hjust = 0.1,
           color = "gold4",
-          linetype = "dashed"
-        ) +
-        geom_texthline(
-          yintercept = 50,
-          label = "PI-2 (2025)",
-          hjust = 0.1,
-          color = "darkorange",
           linetype = "dashed"
         )
     }
