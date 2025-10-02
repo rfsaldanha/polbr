@@ -8,6 +8,7 @@ library(lubridate)
 library(sf)
 library(leaflet)
 library(leaflet.extras2)
+# library(htmlwidgets)
 library(DBI)
 library(duckdb)
 library(ggplot2)
@@ -260,7 +261,7 @@ pal_prec <- colorBin(
 ui <- page_navbar(
   tags$head(includeHTML("google-analytics.html")),
 
-  title = "SIVAPS",
+  title = "Monitor QAr",
   theme = bs_theme(bootswatch = "shiny"),
 
   # Logo
@@ -474,7 +475,7 @@ ui <- page_navbar(
           accordion_panel(
             "Descrição",
             HTML(
-              ""
+              "O aerossol orgânico medido no comprimento de onda de 550 nm corresponde a partículas em suspensão na atmosfera resultantes de processos naturais (como emissões de vegetação e queimadas). Este indicador está relacionado à fração orgânica do material particulado fino, que influencia diretamente a qualidade do ar e a radiação solar que atinge a superfície terrestre. Do ponto de vista da saúde pública, os aerossóis orgânicos são preocupantes porque contribuem para a formação do PM2.5, capaz de penetrar profundamente no sistema respiratório, aumentando a incidência de doenças respiratórias, cardiovasculares e inflamatórias."
             )
           )
         )
@@ -1390,6 +1391,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East by MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addCircleMarkers(
@@ -1425,7 +1432,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
         options = layersControlOptions(
@@ -1455,55 +1463,57 @@ server <- function(input, output, session) {
   })
 
   # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_pm25)
+  # observeEvent(input$forecast, {
+  #   # Palette
+  #   mm <- minmax(rst_pm25)
 
-    # Remove old layers
-    leafletProxy("map_pm25", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
+  #   # Remove old layers
+  #   leafletProxy("map_pm25", session) |>
+  #     removeImage(layerId = "raster") |>
+  #     removeVelocity(group = "vento") |>
+  #     removeControl(layerId = "legend") |>
+  #     removeControl(layerId = "title") |>
+  #     removeTiles(layerId = "goes")
 
-    # Depth (forecast)
-    depth <- input$forecast + 1
+  #   # Depth (forecast)
+  #   depth <- input$forecast + 1
 
-    # Update map
-    leafletProxy("map_pm25", session) |>
-      addRasterImage(
-        x = rst_pm25[[depth]],
-        opacity = .7,
-        colors = pal_pm25,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_pm25,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("PM2.5 (μg/m³)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
-  })
+  #   # Update map
+  #   leafletProxy("map_pm25", session) |>
+  #     addRasterImage(
+  #       x = rst_pm25[[depth]],
+  #       opacity = .7,
+  #       colors = pal_pm25,
+  #       layerId = "raster",
+  #       project = FALSE,
+  #       group = "raster"
+  #     ) |>
+  #     addVelocity(
+  #       content = wind_files[depth],
+  #       group = "vento",
+  #       layerId = "vento",
+  #       options = wind_opts
+  #     ) |>
+  #     addLegend(
+  #       pal = pal_pm25,
+  #       values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
+  #       layerId = "legend",
+  #       title = paste0("PM2.5 (μg/m³)")
+  #     ) |>
+  #     # Layers control
+  #     addLayersControl(
+  #       baseGroups = c(
+  #         "Open Street Maps",
+  #         "Imagem de satélite",
+  #         "Satélite GOES"
+  #       ),
+  #       overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
+  #       options = layersControlOptions(
+  #         collapsed = TRUE,
+  #         position = "bottomleft"
+  #       )
+  #     )
+  # })
 
   # Graph pm25
   mun_data_pm25 <- reactive({
