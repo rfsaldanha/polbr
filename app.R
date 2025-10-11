@@ -1129,6 +1129,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -1155,7 +1161,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -1537,6 +1544,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addCircleMarkers(
@@ -1572,7 +1585,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
         options = layersControlOptions(
@@ -1727,6 +1741,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -1753,7 +1773,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -1897,6 +1918,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -1923,7 +1950,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2094,6 +2122,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -2120,7 +2154,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2275,6 +2310,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -2301,7 +2342,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2456,6 +2498,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -2482,7 +2530,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2637,6 +2686,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -2663,7 +2718,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2818,6 +2874,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -2844,7 +2906,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -3006,6 +3069,12 @@ server <- function(input, output, session) {
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
       ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
+      ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
       addRasterImage(
@@ -3032,7 +3101,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
