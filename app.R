@@ -1514,7 +1514,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map PM10 initial state
+  # Map PM10 state
   output$map_pm10 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1599,57 +1599,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_pm10", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_pm10)
-
-    # Remove old layers
-    leafletProxy("map_pm10", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_pm10", session) |>
-      addRasterImage(
-        x = rst_pm10[[depth]],
-        opacity = .7,
-        colors = pal_pm10,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_pm10,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("PM10 (μg/m³)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph pm10
