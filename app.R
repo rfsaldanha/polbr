@@ -2983,7 +2983,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map precipitation initial state
+  # Map precipitation
   output$map_prec <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -3059,57 +3059,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_prec", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_prec)
-
-    # Remove old layers
-    leafletProxy("map_prec", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_prec", session) |>
-      addRasterImage(
-        x = rst_prec[[depth]],
-        opacity = .7,
-        colors = pal_prec,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_prec,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("Precipitação (mm)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph precipitation
