@@ -1106,7 +1106,7 @@ server <- function(input, output, session) {
     HTML(paste0("<em>", forecast_date), "</em>")
   })
 
-  # Map IQAr initial state
+  # Map IQAr state
   output$map_iqar <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1182,57 +1182,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_iqar", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_iqar)
-
-    # Remove old layers
-    leafletProxy("map_iqar", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
-
-    # Update map
-    leafletProxy("map_iqar", session) |>
-      addRasterImage(
-        x = rst_iqar[[depth]],
-        opacity = .7,
-        colors = pal_iqar,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_iqar,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("IQAr")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph IQAr
