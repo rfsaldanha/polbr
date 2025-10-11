@@ -347,7 +347,7 @@ ui <- page_navbar(
 
   # PM2.5
   nav_panel(
-    title = "PM 2.5",
+    title = "PM2.5",
     page_fillable(
       layout_columns(
         col_widths = c(6, 6),
@@ -393,7 +393,7 @@ ui <- page_navbar(
 
   # PM10
   nav_panel(
-    title = "PM 10",
+    title = "PM10",
     page_fillable(
       layout_columns(
         col_widths = c(6, 6),
@@ -761,7 +761,7 @@ ui <- page_navbar(
 
   # Temperature
   nav_panel(
-    title = "Temperatura",
+    title = "Temp.",
     page_fillable(
       layout_columns(
         col_widths = c(6, 6),
@@ -807,7 +807,7 @@ ui <- page_navbar(
 
   # Precipitation
   nav_panel(
-    title = "Precipitação",
+    title = "Prec.",
     page_fillable(
       layout_columns(
         col_widths = c(6, 6),
@@ -950,7 +950,7 @@ ui <- page_navbar(
 
   # Historical data
   nav_panel(
-    title = "Dados históricos",
+    title = "Dados hist.",
     accordion(
       multiple = FALSE,
       accordion_panel(
