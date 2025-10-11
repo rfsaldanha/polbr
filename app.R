@@ -2795,7 +2795,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map aerosol initial state
+  # Map aerosol
   output$map_aerosol <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -2871,57 +2871,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_aerosol", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_aerosol)
-
-    # Remove old layers
-    leafletProxy("map_aerosol", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_aerosol", session) |>
-      addRasterImage(
-        x = rst_aerosol[[depth]],
-        opacity = .7,
-        colors = pal_aerosol,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_aerosol,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("Aerosol (org.) 550nm")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph aerosol
