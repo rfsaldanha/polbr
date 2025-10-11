@@ -1368,7 +1368,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map PM2.5 initial state
+  # Map PM2.5
   output$map_pm25 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1394,7 +1394,7 @@ server <- function(input, output, session) {
       addWMSTiles(
         baseUrl = "https://geo.weather.gc.ca/geomet",
         layers = "GOES-East_1km_NaturalColor",
-        attribution = "GOES East by MSC GeoMet Canada",
+        attribution = "GOES East, MSC GeoMet Canada",
         group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
@@ -1461,59 +1461,6 @@ server <- function(input, output, session) {
     leafletProxy("map_pm25", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
   })
-
-  # Update raster and date text on map
-  # observeEvent(input$forecast, {
-  #   # Palette
-  #   mm <- minmax(rst_pm25)
-
-  #   # Remove old layers
-  #   leafletProxy("map_pm25", session) |>
-  #     removeImage(layerId = "raster") |>
-  #     removeVelocity(group = "vento") |>
-  #     removeControl(layerId = "legend") |>
-  #     removeControl(layerId = "title") |>
-  #     removeTiles(layerId = "goes")
-
-  #   # Depth (forecast)
-  #   depth <- input$forecast + 1
-
-  #   # Update map
-  #   leafletProxy("map_pm25", session) |>
-  #     addRasterImage(
-  #       x = rst_pm25[[depth]],
-  #       opacity = .7,
-  #       colors = pal_pm25,
-  #       layerId = "raster",
-  #       project = FALSE,
-  #       group = "raster"
-  #     ) |>
-  #     addVelocity(
-  #       content = wind_files[depth],
-  #       group = "vento",
-  #       layerId = "vento",
-  #       options = wind_opts
-  #     ) |>
-  #     addLegend(
-  #       pal = pal_pm25,
-  #       values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-  #       layerId = "legend",
-  #       title = paste0("PM2.5 (μg/m³)")
-  #     ) |>
-  #     # Layers control
-  #     addLayersControl(
-  #       baseGroups = c(
-  #         "Open Street Maps",
-  #         "Imagem de satélite",
-  #         "Satélite GOES"
-  #       ),
-  #       overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
-  #       options = layersControlOptions(
-  #         collapsed = TRUE,
-  #         position = "bottomleft"
-  #       )
-  #     )
-  # })
 
   # Graph pm25
   mun_data_pm25 <- reactive({
