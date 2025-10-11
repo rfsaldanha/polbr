@@ -2071,7 +2071,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map O3 initial state
+  # Map O3
   output$map_o3 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -2147,57 +2147,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_o3", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_o3)
-
-    # Remove old layers
-    leafletProxy("map_o3", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
-
-    # Update map
-    leafletProxy("map_o3", session) |>
-      addRasterImage(
-        x = rst_o3[[depth]],
-        opacity = .7,
-        colors = pal_o3,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_o3,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("O3 (μg/m³)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph o3
