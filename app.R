@@ -1874,7 +1874,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map UV initial state
+  # Map UV
   output$map_uv <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1950,57 +1950,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_uv", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_uv)
-
-    # Remove old layers
-    leafletProxy("map_uv", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_uv", session) |>
-      addRasterImage(
-        x = rst_uv[[depth]],
-        opacity = .7,
-        colors = pal_uv,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_uv,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("Índice UV")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph UV
