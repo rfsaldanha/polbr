@@ -19,8 +19,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-data_dir <- path("../camsdata/forecast_data/")
+data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+# data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
@@ -1034,6 +1034,9 @@ ui <- page_navbar(
         ),
         p(
           "Os mapas de PM 2.5 e PM 10 apresentam, além do nível de concentração dos poluentes, o focos de calor identificados pelo programa BDQueimadas do INPE, dos últimos três dias."
+        ),
+        p(
+          "Todos os mapas apresentam as seguintes opções de camada de fundo: mapa base do Open Street Maps (OSM), imagem de satélite de referência disponibilizada pela ESRI e imagem de satélite em tempo real do satélite GOES-East disponibilizada pelo governo canadense."
         ),
         p(
           "Os gráficos apresentados no painel representam a média espacial dos pixels de estimativas que intersectam o território de cada município."
