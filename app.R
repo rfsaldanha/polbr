@@ -261,7 +261,7 @@ pal_prec <- colorBin(
 ui <- page_navbar(
   tags$head(includeHTML("google-analytics.html")),
 
-  title = "MonitorAr Saúde",
+  title = "AlertAr Saúde",
   theme = bs_theme(bootswatch = "shiny"),
 
   # Logo
