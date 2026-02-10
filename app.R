@@ -965,6 +965,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/16374139"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18552120"
         )
       ),
       accordion_panel(
@@ -973,6 +979,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/16419737"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18554403"
         )
       ),
       accordion_panel(
@@ -981,6 +993,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/17025187"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18558668"
         )
       ),
       accordion_panel(
@@ -989,6 +1007,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/16984341"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18555894"
         )
       ),
       accordion_panel(
@@ -997,6 +1021,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/17019753"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18556588"
         )
       ),
       accordion_panel(
@@ -1005,6 +1035,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/17047073"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18559084"
         )
       )
     )
