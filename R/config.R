@@ -122,7 +122,7 @@ indicator_catalog <- function() {
       description = "Profundidade optica associada a particulas organicas em suspensao."
     ),
     prec = list(
-      label = "Chuva acumulada", short = "Chuva acumulada", unit = "mm",
+      label = "Precipitação acumulada", short = "Precipitação acumulada", unit = "mm",
       file = "cams_forecast_prec.nc", table = "prec_mun_forecast", interval = 1,
       scale = 1e3, offset = 0, range = c(0, 100), digits = 1,
       colors = c("#172554", "#1d4ed8", "#06b6d4", "#22c55e", "#facc15", "#f8fafc"),
