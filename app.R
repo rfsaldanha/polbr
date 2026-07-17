@@ -19,8 +19,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-# data_dir <- path("../camsdata/forecast_data/")
+# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
@@ -209,29 +209,42 @@ pal_uv <- colorBin(
 )
 
 pal_o3 <- colorBin(
-  palette = "RdPu",
-  bins = c(100, 120, 160, Inf),
+  palette = c(
+    "#f7fbff", "#e3eef8", "#cfe1f2", "#b5d4e9",
+    "#8fbddd", "#fee08b", "#f46d43", "#b2182b"
+  ),
+  bins = c(0, 20, 40, 60, 80, 100, 120, 160, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_co <- colorBin(
-  palette = "Purples",
-  bins = c(0, 9, 11, 13, 15, Inf),
+  palette = c(
+    "#f7fbff", "#edf4fa", "#e1edf6", "#d3e5f2",
+    "#c2d9ec", "#abcbe4", "#8db8d8", "#6ba3cc",
+    "#fee08b", "#fdae61", "#d73027", "#762a83"
+  ),
+  bins = c(0, .05, .1, .2, .5, 1, 2, 4, 9, 11, 13, 15, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_no2 <- colorBin(
-  palette = "BuPu",
-  bins = c(25, 50, 120, Inf),
+  palette = c(
+    "#f7fbff", "#deebf7", "#c6dbef", "#9ecae1",
+    "#fee08b", "#fdae61", "#d73027", "#762a83"
+  ),
+  bins = c(0, 5, 10, 15, 25, 50, 120, 200, Inf),
   na.color = NA,
   reverse = FALSE
 )
 
 pal_so2 <- colorBin(
-  palette = "PuBuGn",
-  bins = c(0, 40, 50, 125, Inf),
+  palette = c(
+    "#f7fbff", "#e8f1f8", "#d9e9f3", "#c6dfee", "#abd0e6",
+    "#89bddb", "#fee08b", "#fdae61", "#d73027"
+  ),
+  bins = c(0, 1, 2, 5, 10, 20, 40, 50, 125, Inf),
   na.color = NA,
   reverse = FALSE
 )
@@ -244,10 +257,13 @@ pal_wind_speed <- colorBin(
 )
 
 pal_aerosol <- colorBin(
-  palette = "magma",
-  bins = c(.1, .2, .3, .4, .6, .8, 1, 3, Inf),
+  palette = c(
+    "#f7f7f7", "#e8eef3", "#d8e5ec", "#c3d7e3",
+    "#a8c6d6", "#85aec4", "#5f8fab", "#386b8a"
+  ),
+  bins = c(0, .005, .01, .02, .04, .08, .16, .32, Inf),
   na.color = NA,
-  reverse = TRUE
+  reverse = FALSE
 )
 
 pal_prec <- colorBin(
@@ -1103,6 +1119,17 @@ ui <- page_navbar(
     )
   )
 )
+
+# Do not present an invalid all-zero raster as a low concentration forecast.
+validate_map_values <- function(mm, pollutant) {
+  limits <- as.numeric(mm)
+  validate(
+    need(
+      any(is.finite(limits) & limits != 0),
+      paste("Dados de", pollutant, "indisponíveis nesta atualização.")
+    )
+  )
+}
 
 # Server
 server <- function(input, output, session) {
@@ -2151,6 +2178,7 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_o3)
+    validate_map_values(mm, "O3")
 
     # Depth (forecast)
     depth <- (input$forecast + 1 + 2) / 3
@@ -2339,6 +2367,7 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_co)
+    validate_map_values(mm, "CO")
 
     # Depth (forecast)
     depth <- (input$forecast + 1 + 2) / 3
@@ -2527,6 +2556,7 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_no2)
+    validate_map_values(mm, "NO2")
 
     # Depth (forecast)
     depth <- (input$forecast + 1 + 2) / 3
@@ -2715,6 +2745,7 @@ server <- function(input, output, session) {
 
     # Palette
     mm <- minmax(rst_so2)
+    validate_map_values(mm, "SO2")
 
     # Depth (forecast)
     depth <- (input$forecast + 1 + 2) / 3
