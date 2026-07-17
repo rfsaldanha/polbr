@@ -19,8 +19,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-data_dir <- path("../camsdata/forecast_data/")
+data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+# data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
@@ -210,8 +210,14 @@ pal_uv <- colorBin(
 
 pal_o3 <- colorBin(
   palette = c(
-    "#f7fbff", "#e3eef8", "#cfe1f2", "#b5d4e9",
-    "#8fbddd", "#fee08b", "#f46d43", "#b2182b"
+    "#f7fbff",
+    "#e3eef8",
+    "#cfe1f2",
+    "#b5d4e9",
+    "#8fbddd",
+    "#fee08b",
+    "#f46d43",
+    "#b2182b"
   ),
   bins = c(0, 20, 40, 60, 80, 100, 120, 160, Inf),
   na.color = NA,
@@ -220,9 +226,18 @@ pal_o3 <- colorBin(
 
 pal_co <- colorBin(
   palette = c(
-    "#f7fbff", "#edf4fa", "#e1edf6", "#d3e5f2",
-    "#c2d9ec", "#abcbe4", "#8db8d8", "#6ba3cc",
-    "#fee08b", "#fdae61", "#d73027", "#762a83"
+    "#f7fbff",
+    "#edf4fa",
+    "#e1edf6",
+    "#d3e5f2",
+    "#c2d9ec",
+    "#abcbe4",
+    "#8db8d8",
+    "#6ba3cc",
+    "#fee08b",
+    "#fdae61",
+    "#d73027",
+    "#762a83"
   ),
   bins = c(0, .05, .1, .2, .5, 1, 2, 4, 9, 11, 13, 15, Inf),
   na.color = NA,
@@ -231,8 +246,14 @@ pal_co <- colorBin(
 
 pal_no2 <- colorBin(
   palette = c(
-    "#f7fbff", "#deebf7", "#c6dbef", "#9ecae1",
-    "#fee08b", "#fdae61", "#d73027", "#762a83"
+    "#f7fbff",
+    "#deebf7",
+    "#c6dbef",
+    "#9ecae1",
+    "#fee08b",
+    "#fdae61",
+    "#d73027",
+    "#762a83"
   ),
   bins = c(0, 5, 10, 15, 25, 50, 120, 200, Inf),
   na.color = NA,
@@ -241,8 +262,15 @@ pal_no2 <- colorBin(
 
 pal_so2 <- colorBin(
   palette = c(
-    "#f7fbff", "#e8f1f8", "#d9e9f3", "#c6dfee", "#abd0e6",
-    "#89bddb", "#fee08b", "#fdae61", "#d73027"
+    "#f7fbff",
+    "#e8f1f8",
+    "#d9e9f3",
+    "#c6dfee",
+    "#abd0e6",
+    "#89bddb",
+    "#fee08b",
+    "#fdae61",
+    "#d73027"
   ),
   bins = c(0, 1, 2, 5, 10, 20, 40, 50, 125, Inf),
   na.color = NA,
@@ -258,8 +286,14 @@ pal_wind_speed <- colorBin(
 
 pal_aerosol <- colorBin(
   palette = c(
-    "#f7f7f7", "#e8eef3", "#d8e5ec", "#c3d7e3",
-    "#a8c6d6", "#85aec4", "#5f8fab", "#386b8a"
+    "#f7f7f7",
+    "#e8eef3",
+    "#d8e5ec",
+    "#c3d7e3",
+    "#a8c6d6",
+    "#85aec4",
+    "#5f8fab",
+    "#386b8a"
   ),
   bins = c(0, .005, .01, .02, .04, .08, .16, .32, Inf),
   na.color = NA,
