@@ -19,8 +19,8 @@ library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
 # Data dir
-# data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-data_dir <- path("../camsdata/forecast_data/")
+data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
+# data_dir <- path("../camsdata/forecast_data/")
 
 # Database connection
 con <- dbConnect(
@@ -261,7 +261,7 @@ pal_prec <- colorBin(
 ui <- page_navbar(
   tags$head(includeHTML("google-analytics.html")),
 
-  title = "MonitorAr Saúde",
+  title = "AlertAr Saúde",
   theme = bs_theme(bootswatch = "shiny"),
 
   # Logo
@@ -965,6 +965,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/16374139"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18552120"
         )
       ),
       accordion_panel(
@@ -973,6 +979,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/16419737"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18554403"
         )
       ),
       accordion_panel(
@@ -981,6 +993,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/17025187"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18558668"
         )
       ),
       accordion_panel(
@@ -989,6 +1007,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/16984341"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18555894"
         )
       ),
       accordion_panel(
@@ -997,6 +1021,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/17019753"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18556588"
         )
       ),
       accordion_panel(
@@ -1005,6 +1035,12 @@ ui <- page_navbar(
           "2003 - 2024",
           target = "_blank",
           href = "https://zenodo.org/records/17047073"
+        ),
+        tags$br(),
+        tags$a(
+          "Janeiro 2025 - Agosto 2025",
+          target = "_blank",
+          href = "https://zenodo.org/records/18559084"
         )
       )
     )
@@ -1034,6 +1070,9 @@ ui <- page_navbar(
         ),
         p(
           "Os mapas de PM 2.5 e PM 10 apresentam, além do nível de concentração dos poluentes, o focos de calor identificados pelo programa BDQueimadas do INPE, dos últimos três dias."
+        ),
+        p(
+          "Todos os mapas apresentam as seguintes opções de camada de fundo: mapa base do Open Street Maps (OSM), imagem de satélite de referência disponibilizada pela ESRI e imagem de satélite em tempo real do satélite GOES-East disponibilizada pelo governo canadense."
         ),
         p(
           "Os gráficos apresentados no painel representam a média espacial dos pixels de estimativas que intersectam o território de cada município."
@@ -1106,7 +1145,7 @@ server <- function(input, output, session) {
     HTML(paste0("<em>", forecast_date), "</em>")
   })
 
-  # Map IQAr initial state
+  # Map IQAr state
   output$map_iqar <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1128,6 +1167,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -1155,7 +1200,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -1182,57 +1228,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_iqar", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_iqar)
-
-    # Remove old layers
-    leafletProxy("map_iqar", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
-
-    # Update map
-    leafletProxy("map_iqar", session) |>
-      addRasterImage(
-        x = rst_iqar[[depth]],
-        opacity = .7,
-        colors = pal_iqar,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_iqar,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("IQAr")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph IQAr
@@ -1368,7 +1363,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map PM2.5 initial state
+  # Map PM2.5
   output$map_pm25 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1394,7 +1389,7 @@ server <- function(input, output, session) {
       addWMSTiles(
         baseUrl = "https://geo.weather.gc.ca/geomet",
         layers = "GOES-East_1km_NaturalColor",
-        attribution = "GOES East by MSC GeoMet Canada",
+        attribution = "GOES East, MSC GeoMet Canada",
         group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
@@ -1461,59 +1456,6 @@ server <- function(input, output, session) {
     leafletProxy("map_pm25", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
   })
-
-  # Update raster and date text on map
-  # observeEvent(input$forecast, {
-  #   # Palette
-  #   mm <- minmax(rst_pm25)
-
-  #   # Remove old layers
-  #   leafletProxy("map_pm25", session) |>
-  #     removeImage(layerId = "raster") |>
-  #     removeVelocity(group = "vento") |>
-  #     removeControl(layerId = "legend") |>
-  #     removeControl(layerId = "title") |>
-  #     removeTiles(layerId = "goes")
-
-  #   # Depth (forecast)
-  #   depth <- input$forecast + 1
-
-  #   # Update map
-  #   leafletProxy("map_pm25", session) |>
-  #     addRasterImage(
-  #       x = rst_pm25[[depth]],
-  #       opacity = .7,
-  #       colors = pal_pm25,
-  #       layerId = "raster",
-  #       project = FALSE,
-  #       group = "raster"
-  #     ) |>
-  #     addVelocity(
-  #       content = wind_files[depth],
-  #       group = "vento",
-  #       layerId = "vento",
-  #       options = wind_opts
-  #     ) |>
-  #     addLegend(
-  #       pal = pal_pm25,
-  #       values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-  #       layerId = "legend",
-  #       title = paste0("PM2.5 (μg/m³)")
-  #     ) |>
-  #     # Layers control
-  #     addLayersControl(
-  #       baseGroups = c(
-  #         "Open Street Maps",
-  #         "Imagem de satélite",
-  #         "Satélite GOES"
-  #       ),
-  #       overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
-  #       options = layersControlOptions(
-  #         collapsed = TRUE,
-  #         position = "bottomleft"
-  #       )
-  #     )
-  # })
 
   # Graph pm25
   mun_data_pm25 <- reactive({
@@ -1618,7 +1560,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map PM10 initial state
+  # Map PM10 state
   output$map_pm10 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1640,6 +1582,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -1676,7 +1624,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
         options = layersControlOptions(
@@ -1703,57 +1652,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_pm10", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_pm10)
-
-    # Remove old layers
-    leafletProxy("map_pm10", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_pm10", session) |>
-      addRasterImage(
-        x = rst_pm10[[depth]],
-        opacity = .7,
-        colors = pal_pm10,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_pm10,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("PM10 (μg/m³)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "INPE/BDQueimadas", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph pm10
@@ -1859,7 +1757,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map temperature initial state
+  # Map temperature
   output$map_temp <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -1881,6 +1779,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -1908,7 +1812,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -1935,57 +1840,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_temp", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_temp)
-
-    # Remove old layers
-    leafletProxy("map_temp", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_temp", session) |>
-      addRasterImage(
-        x = rst_temp[[depth]],
-        opacity = .7,
-        colors = pal_temp,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_temp,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("Temperatura (°C)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph temperature
@@ -2080,7 +1934,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map UV initial state
+  # Map UV
   output$map_uv <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -2102,6 +1956,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -2129,7 +1989,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2156,57 +2017,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_uv", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_uv)
-
-    # Remove old layers
-    leafletProxy("map_uv", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_uv", session) |>
-      addRasterImage(
-        x = rst_uv[[depth]],
-        opacity = .7,
-        colors = pal_uv,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_uv,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("Índice UV")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph UV
@@ -2328,7 +2138,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map O3 initial state
+  # Map O3
   output$map_o3 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -2350,6 +2160,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -2377,7 +2193,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2404,57 +2221,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_o3", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_o3)
-
-    # Remove old layers
-    leafletProxy("map_o3", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
-
-    # Update map
-    leafletProxy("map_o3", session) |>
-      addRasterImage(
-        x = rst_o3[[depth]],
-        opacity = .7,
-        colors = pal_o3,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_o3,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("O3 (μg/m³)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph o3
@@ -2560,7 +2326,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map CO initial state
+  # Map CO
   output$map_co <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -2582,6 +2348,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -2609,7 +2381,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2636,57 +2409,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_co", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_co)
-
-    # Remove old layers
-    leafletProxy("map_co", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
-
-    # Update map
-    leafletProxy("map_co", session) |>
-      addRasterImage(
-        x = rst_co[[depth]],
-        opacity = .7,
-        colors = pal_co,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_co,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("CO (PPM)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph co
@@ -2792,7 +2514,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map NO2 initial state
+  # Map NO2
   output$map_no2 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -2814,6 +2536,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -2841,7 +2569,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -2868,57 +2597,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_no2", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_no2)
-
-    # Remove old layers
-    leafletProxy("map_no2", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
-
-    # Update map
-    leafletProxy("map_no2", session) |>
-      addRasterImage(
-        x = rst_no2[[depth]],
-        opacity = .7,
-        colors = pal_no2,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_no2,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("NO2 (μg/m³)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph no2
@@ -3024,7 +2702,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map SO2 initial state
+  # Map SO2
   output$map_so2 <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -3046,6 +2724,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -3073,7 +2757,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -3100,57 +2785,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_so2", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_so2)
-
-    # Remove old layers
-    leafletProxy("map_so2", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- (input$forecast + 1 + 2) / 3
-
-    # Update map
-    leafletProxy("map_so2", session) |>
-      addRasterImage(
-        x = rst_so2[[depth]],
-        opacity = .7,
-        colors = pal_so2,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_so2,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("SO2 (μg/m³)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph so2
@@ -3256,7 +2890,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map aerosol initial state
+  # Map aerosol
   output$map_aerosol <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -3278,6 +2912,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -3305,7 +2945,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -3332,57 +2973,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_aerosol", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_aerosol)
-
-    # Remove old layers
-    leafletProxy("map_aerosol", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_aerosol", session) |>
-      addRasterImage(
-        x = rst_aerosol[[depth]],
-        opacity = .7,
-        colors = pal_aerosol,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_aerosol,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("Aerosol (org.) 550nm")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph aerosol
@@ -3495,7 +3085,7 @@ server <- function(input, output, session) {
     }
   )
 
-  # Map precipitation initial state
+  # Map precipitation
   output$map_prec <- renderLeaflet({
     req(input$municipality)
     req(input$forecast)
@@ -3517,6 +3107,12 @@ server <- function(input, output, session) {
       addProviderTiles(
         providers$Esri.WorldImagery,
         group = "Imagem de satélite"
+      ) |>
+      addWMSTiles(
+        baseUrl = "https://geo.weather.gc.ca/geomet",
+        layers = "GOES-East_1km_NaturalColor",
+        attribution = "GOES East, MSC GeoMet Canada",
+        group = "Satélite GOES"
       ) |>
       fitBounds(-71.10, 6.06, -32.20, -34.17) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker") |>
@@ -3544,7 +3140,8 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c(
           "Open Street Maps",
-          "Imagem de satélite"
+          "Imagem de satélite",
+          "Satélite GOES"
         ),
         overlayGroups = c("raster", "vento"),
         options = layersControlOptions(
@@ -3571,57 +3168,6 @@ server <- function(input, output, session) {
     # Update map
     leafletProxy("map_prec", session) |>
       addMarkers(lng = coord[1], lat = coord[2], layerId = "mun_marker")
-  })
-
-  # Update raster and date text on map
-  observeEvent(input$forecast, {
-    # Palette
-    mm <- minmax(rst_prec)
-
-    # Remove old layers
-    leafletProxy("map_prec", session) |>
-      removeImage(layerId = "raster") |>
-      removeVelocity(group = "vento") |>
-      removeControl(layerId = "legend") |>
-      removeControl(layerId = "title")
-
-    # Depth (forecast)
-    depth <- input$forecast + 1
-
-    # Update map
-    leafletProxy("map_prec", session) |>
-      addRasterImage(
-        x = rst_prec[[depth]],
-        opacity = .7,
-        colors = pal_prec,
-        layerId = "raster",
-        project = FALSE,
-        group = "raster"
-      ) |>
-      addVelocity(
-        content = wind_files[depth],
-        group = "vento",
-        layerId = "vento",
-        options = wind_opts
-      ) |>
-      addLegend(
-        pal = pal_prec,
-        values = c(min(t(mm)[, 1]), max(t(mm)[, 2])),
-        layerId = "legend",
-        title = paste0("Precipitação (mm)")
-      ) |>
-      # Layers control
-      addLayersControl(
-        baseGroups = c(
-          "Open Street Maps",
-          "Imagem de satélite"
-        ),
-        overlayGroups = c("raster", "vento"),
-        options = layersControlOptions(
-          collapsed = TRUE,
-          position = "bottomleft"
-        )
-      )
   })
 
   # Graph precipitation
