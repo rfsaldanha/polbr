@@ -909,7 +909,7 @@ app_server <- function(store) {
         playing(isTRUE(isolate(playing_before_totem())))
         update_play_button()
       }
-    }, ignoreInit = TRUE)
+    }, ignoreInit = FALSE)
 
     observeEvent(input$play, {
       if (isTRUE(isolate(playing()))) {

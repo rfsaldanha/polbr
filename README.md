@@ -25,6 +25,17 @@ melhorando a definicao no navegador. Para ajustar esse limite, use, por exemplo,
 
 No modo totem, os dados são reabertos automaticamente a cada três horas. O intervalo pode ser ajustado, em horas, com `ALERTAR_TOTEM_REFRESH_HOURS=3`.
 
+O modo totem também pode ser ativado no carregamento pelo parâmetro de URL
+`totem`. São aceitos `?totem`, `?totem=1`, `?totem=true`, `?totem=yes`,
+`?totem=on` e `?totem=sim`. O parâmetro ativa a animação e o ciclo do totem,
+mas não solicita tela cheia nativa; para uma instalação dedicada, inicie o
+navegador em modo quiosque, por exemplo:
+
+```sh
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --kiosk "https://servidor/app/?totem=1" --no-first-run
+```
+
 A cobertura geografica e configuravel sem alterar o codigo. O modo `brazil` e o padrao atual; `lac` prepara enquadramento e rotulos para America Latina e Caribe.
 
 ```sh

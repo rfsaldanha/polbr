@@ -7,6 +7,8 @@
   const latestRasterTokens = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
+  let handlersRegistered = false;
+  let urlTotemApplied = false;
 
   function remember(cache, key, promise, limit) {
     cache.set(key, promise);
@@ -640,6 +642,21 @@
     if (notify) notifyTotemState();
   }
 
+  function urlRequestsTotemMode() {
+    const parameters = new URLSearchParams(window.location.search);
+    if (!parameters.has("totem")) return false;
+    const value = String(parameters.get("totem") || "").trim().toLowerCase();
+    return value === "" || ["1", "true", "yes", "on", "sim"].includes(value);
+  }
+
+  function applyUrlStartupMode() {
+    if (urlTotemApplied || !urlRequestsTotemMode()) return;
+    urlTotemApplied = true;
+    // Fullscreen requests require a user gesture in regular browsers. A browser
+    // launched in kiosk mode is already fullscreen, so only activate app behavior.
+    setTotemMode(true, false, true);
+  }
+
   function bindTotemToggle() {
     const button = document.getElementById("toggle_totem");
     if (!button || button.dataset.toggleBound === "true") return;
@@ -663,6 +680,8 @@
   }
 
   function registerHandlers() {
+    if (handlersRegistered || !window.Shiny) return;
+    handlersRegistered = true;
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
@@ -677,9 +696,21 @@
     bindLocalControls();
   }
 
+  function initializeShinySession() {
+    registerHandlers();
+    applyUrlStartupMode();
+  }
+
   if (window.Shiny) {
     registerHandlers();
-  } else {
-    document.addEventListener("shiny:connected", registerHandlers, {once: true});
+    if (Shiny.initializedPromise && typeof Shiny.initializedPromise.then === "function") {
+      Shiny.initializedPromise.then(initializeShinySession);
+    }
+  }
+
+  // Shiny dispatches its lifecycle events through jQuery. Keep this fallback
+  // for versions that do not expose initializedPromise.
+  if (window.jQuery) {
+    window.jQuery(document).one("shiny:sessioninitialized", initializeShinySession);
   }
 })();
