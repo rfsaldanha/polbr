@@ -35,7 +35,7 @@ indicator_catalog <- function() {
     co = list(
       label = "Monoxido de carbono", short = "CO", unit = "ppm",
       file = "cams_forecast_co_mc.nc", table = "co_mun_forecast", interval = 3,
-      scale = 1e6 * 24.45 / 28.01, offset = 0, range = c(0, 15), digits = 2,
+      scale = 1, offset = 0, range = c(0, 15), digits = 2,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 1, 4, 9, 11, 13, Inf),
       description = "Gas gerado por combustao incompleta, especialmente veiculos, industria e queimadas."
@@ -59,7 +59,8 @@ indicator_catalog <- function() {
     temp = list(
       label = "Temperatura", short = "Temperatura", unit = "C",
       file = "cams_forecast_temp.nc", table = "temp_mun_forecast", interval = 1,
-      scale = 1, offset = -273.15, range = c(-5, 45), digits = 1,
+      scale = 1, offset = -273.15, series_offset = -1,
+      range = c(-5, 45), digits = 1,
       colors = c("#312e81", "#2563eb", "#22d3ee", "#a3e635", "#facc15", "#fb923c", "#ef4444"),
       breaks = NULL,
       description = "Temperatura do ar prevista proxima a superficie."
@@ -75,7 +76,7 @@ indicator_catalog <- function() {
     wind_speed = list(
       label = "Velocidade do vento", short = "Vento", unit = "km/h",
       file = "cams_forecast_wind_speed.nc", table = "wind_speed_mun_forecast", interval = 1,
-      scale = 3.6, offset = 0, range = c(0, 100), digits = 1,
+      scale = 1, offset = 0, range = c(0, 100), digits = 1,
       colors = c("#172554", "#0369a1", "#06b6d4", "#84cc16", "#facc15", "#f97316"),
       breaks = NULL,
       description = "Velocidade do vento proxima a superficie. As particulas mostram sua direcao."
@@ -89,7 +90,7 @@ indicator_catalog <- function() {
       description = "Profundidade optica associada a particulas organicas em suspensao."
     ),
     prec = list(
-      label = "Precipitacao", short = "Chuva", unit = "mm",
+      label = "Chuva acumulada", short = "Chuva acumulada", unit = "mm",
       file = "cams_forecast_prec.nc", table = "prec_mun_forecast", interval = 1,
       scale = 1e3, offset = 0, range = c(0, 100), digits = 1,
       colors = c("#172554", "#1d4ed8", "#06b6d4", "#22c55e", "#facc15", "#f8fafc"),

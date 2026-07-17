@@ -71,9 +71,29 @@ app_server <- function(store) {
       catalog[[input$indicator]]
     })
 
+    selected_horizon <- reactive({
+      req(input$indicator, input$horizon)
+      store$normalize_horizon(input$indicator, input$horizon)
+    })
+
+    observeEvent(input$indicator, {
+      req(input$indicator)
+      horizons <- store$forecast_horizons(input$indicator)
+      req(length(horizons))
+      current <- isolate(input$horizon %||% 12)
+      updateSliderInput(
+        session,
+        "horizon",
+        min = min(horizons),
+        max = max(horizons),
+        step = catalog[[input$indicator]]$interval,
+        value = store$normalize_horizon(input$indicator, current)
+      )
+    }, ignoreInit = FALSE)
+
     layer_request <- reactive({
       req(input$indicator, input$horizon)
-      list(id = input$indicator, horizon = input$horizon)
+      list(id = input$indicator, horizon = selected_horizon())
     }) |> debounce(100)
 
     update_raster <- function(id, horizon) {
@@ -94,14 +114,10 @@ app_server <- function(store) {
     schedule_raster_preload <- function(id, horizon, frames = 4L) {
       preload_generation <<- preload_generation + 1L
       generation <- preload_generation
-      first_horizon <- as.integer(horizon) + 3L
-      last_horizon <- min(120L, as.integer(horizon) + frames * 3L)
-      if (first_horizon > last_horizon) return(invisible(NULL))
-
-      future_horizons <- seq.int(first_horizon, last_horizon, by = 3L)
-      for (i in seq_along(future_horizons)) {
+      preload_horizons <- store$future_horizons(id, horizon, frames)
+      for (i in seq_along(preload_horizons)) {
         local({
-          preload_horizon <- future_horizons[[i]]
+          preload_horizon <- preload_horizons[[i]]
           preload_delay <- 0.15 + (i - 1L) * 0.35
           later::later(function() {
             if (generation != preload_generation) return(invisible(NULL))
@@ -132,7 +148,6 @@ app_server <- function(store) {
       request <- layer_request()
       update_raster(request$id, request$horizon)
       schedule_raster_preload(request$id, request$horizon)
-      update_selected_territory()
       session$sendCustomMessage(
         "alertar:wind",
         list(
@@ -150,7 +165,7 @@ app_server <- function(store) {
         list(
           mapId = session$ns("forecast_map"),
           active = isTRUE(input$show_wind) && store$wind_available,
-          url = if (store$wind_available) store$wind_url(input$horizon %||% 0) else NULL
+          url = if (store$wind_available) store$wind_url(selected_horizon()) else NULL
         )
       )
     }, ignoreInit = TRUE)
@@ -204,8 +219,9 @@ app_server <- function(store) {
     observeEvent(input$forecast_map_bbox, {
       map_ready(TRUE)
       req(input$indicator, input$horizon)
-      update_raster(input$indicator, input$horizon)
-      schedule_raster_preload(input$indicator, input$horizon)
+      horizon <- selected_horizon()
+      update_raster(input$indicator, horizon)
+      schedule_raster_preload(input$indicator, horizon)
       update_selected_territory()
       mapgl::maplibre_proxy("forecast_map", session) |>
         mapgl::set_layout_property("satellite", "visibility", if (isTRUE(input$show_satellite)) "visible" else "none")
@@ -219,7 +235,7 @@ app_server <- function(store) {
         list(
           mapId = session$ns("forecast_map"),
           active = isTRUE(input$show_wind) && store$wind_available,
-          url = if (store$wind_available) store$wind_url(input$horizon) else NULL
+          url = if (store$wind_available) store$wind_url(horizon) else NULL
         )
       )
       session$sendCustomMessage(
@@ -242,7 +258,7 @@ app_server <- function(store) {
     selected_value <- reactive({
       data <- series()
       if (!nrow(data)) return(NA_real_)
-      target <- forecast_origin() + input$horizon * 3600
+      target <- forecast_origin() + selected_horizon() * 3600
       data$value[[which.min(abs(as.numeric(difftime(data$date, target, units = "secs"))))]]
     })
 
@@ -252,9 +268,10 @@ app_server <- function(store) {
     })
 
     output$forecast_time <- renderUI({
-      time <- as.POSIXct(forecast_origin() + input$horizon * 3600, tz = "America/Sao_Paulo")
+      horizon <- selected_horizon()
+      time <- as.POSIXct(forecast_origin() + horizon * 3600, tz = "America/Sao_Paulo")
       tagList(
-        strong(sprintf("+%03dh", input$horizon)),
+        strong(sprintf("+%03dh", horizon)),
         span(format(time, "%d/%m/%Y • %H:%M BRT"))
       )
     })
@@ -264,7 +281,7 @@ app_server <- function(store) {
       tagList(
         div(class = "indicator-name", cfg$label),
         p(cfg$description),
-        div(class = "source-label", "MODELO CAMS • HORIZONTE 120H")
+        div(class = "source-label", sprintf("MODELO CAMS • PASSO %dH • HORIZONTE 120H", cfg$interval))
       )
     })
 
@@ -291,12 +308,31 @@ app_server <- function(store) {
     output$forecast_spark <- renderPlot({
       data <- series()
       validate(need(nrow(data), "Serie territorial indisponivel"))
-      target <- forecast_origin() + input$horizon * 3600
-      par(mar = c(1.2, 1, .5, .5), bg = NA, fg = "#7890a0")
-      plot(data$date, data$value, type = "l", col = "#35d4b4", lwd = 2.2, axes = FALSE, xlab = "", ylab = "")
+      cfg <- selected_config()
+      target <- forecast_origin() + selected_horizon() * 3600
+      selected_index <- which.min(abs(as.numeric(data$date - target)))
+      selected_y <- pmax(cfg$range[[1]], pmin(cfg$range[[2]], data$value[[selected_index]]))
+      y_ticks <- pretty(cfg$range, n = 3)
+      y_ticks <- y_ticks[y_ticks >= cfg$range[[1]] & y_ticks <= cfg$range[[2]]]
+      y_labels <- format(
+        round(y_ticks, cfg$digits),
+        trim = TRUE,
+        scientific = FALSE,
+        decimal.mark = ","
+      )
+
+      par(mar = c(1.2, 3.1, .5, .5), bg = NA, fg = "#7890a0")
+      plot(
+        data$date, data$value,
+        type = "n", ylim = cfg$range, axes = FALSE,
+        xlab = "", ylab = "", xaxs = "i", yaxs = "i"
+      )
+      abline(h = y_ticks, col = "#7890a022", lwd = .7)
+      lines(data$date, data$value, col = "#35d4b4", lwd = 2.2)
       abline(v = target, col = "#f8fafc66", lty = 3)
-      points(target, data$value[[which.min(abs(as.numeric(data$date - target)))]], pch = 21, bg = "#35d4b4", col = "white", cex = 1.1)
+      points(target, selected_y, pch = 21, bg = "#35d4b4", col = "white", cex = 1.1)
       axis.POSIXct(1, at = seq(min(data$date), max(data$date), length.out = 4), format = "%d/%m", col = NA, col.axis = "#7890a0", cex.axis = .72)
+      axis(2, at = y_ticks, labels = y_labels, las = 1, col = NA, col.axis = "#7890a0", cex.axis = .6, mgp = c(0, .35, 0))
     }, bg = "transparent", res = 110)
 
     output$map_legend <- renderUI({
@@ -351,20 +387,29 @@ app_server <- function(store) {
       timer()
       if (!isolate(playing())) return()
       if (isolate(frame_pending())) return()
-      current_horizon <- isolate(input$horizon)
-      if (current_horizon >= 120) {
+      id <- isolate(input$indicator)
+      current_horizon <- store$normalize_horizon(id, isolate(input$horizon))
+      next_horizon <- store$future_horizons(id, current_horizon, 1L)
+      if (!length(next_horizon)) {
         playing(FALSE)
         update_play_button()
         return()
       }
-      next_value <- min(120, current_horizon + 3)
       frame_pending(TRUE)
-      updateSliderInput(session, "horizon", value = next_value)
+      updateSliderInput(session, "horizon", value = next_horizon[[1]])
     })
 
     observeEvent(input$toggle_details, {
       session$sendCustomMessage("alertar:toggle-details", list())
     })
+
+    observeEvent(input$open_history, {
+      showModal(historical_data_modal())
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$open_about, {
+      showModal(about_project_modal())
+    }, ignoreInit = TRUE)
   }
 }
 

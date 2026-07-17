@@ -6,12 +6,36 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   available <- names(rasters)[!vapply(rasters, is.null, logical(1))]
   if (!length(available)) stop("Nenhum raster de previsao foi encontrado em ", data_dir)
 
+  raster_horizons <- lapply(names(catalog), function(id) {
+    x <- rasters[[id]]
+    if (is.null(x)) return(numeric())
+    seq.int(0, by = catalog[[id]]$interval, length.out = terra::nlyr(x))
+  })
+  names(raster_horizons) <- names(catalog)
+
+  normalize_horizon <- function(id, horizon) {
+    values <- raster_horizons[[id]]
+    if (!length(values)) return(NA_real_)
+    horizon <- suppressWarnings(as.numeric(horizon))
+    if (!is.finite(horizon)) horizon <- values[[1]]
+    values[[which.min(abs(values - horizon))]]
+  }
+
+  future_horizons <- function(id, horizon, count = 1L) {
+    values <- raster_horizons[[id]]
+    current <- normalize_horizon(id, horizon)
+    future <- values[values > current]
+    head(future, max(0L, as.integer(count)))
+  }
+
   territories_candidates <- c(
     file.path(data_dir, "territories.rds"),
     file.path(data_dir, "places.rds"),
+    file.path(data_dir, "mun_epsg4326.rds"),
     file.path(data_dir, "mun_seats.rds"),
     file.path("data", "territories.rds"),
     file.path("data", "places.rds"),
+    file.path("data", "mun_epsg4326.rds"),
     file.path("data", "mun_seats.rds")
   )
   territories_path <- territories_candidates[file.exists(territories_candidates)][[1]]
@@ -37,7 +61,8 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   raster_image <- function(id, horizon) {
     cfg <- catalog[[id]]
     x <- rasters[[id]]
-    index <- min(terra::nlyr(x), floor(horizon / cfg$interval) + 1L)
+    actual_horizon <- normalize_horizon(id, horizon)
+    index <- match(actual_horizon, raster_horizons[[id]])
     key <- paste0("image", id, "layer", index)
     if (image_cache$exists(key)) return(image_cache$get(key))
 
@@ -79,7 +104,8 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
         unname(c(extent$xmax, extent$ymin)),
         unname(c(extent$xmin, extent$ymin))
       ),
-      index = index
+      index = index,
+      horizon = actual_horizon
     )
     image_cache$set(key, result)
     result
@@ -88,7 +114,8 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   query_series <- function(id, territory_id) {
     key <- gsub("[^a-z0-9]", "", tolower(paste0("query", id, "territory", territory_id)))
     if (query_cache$exists(key)) return(query_cache$get(key))
-    table <- catalog[[id]]$table
+    cfg <- catalog[[id]]
+    table <- cfg$table
     if (is.null(con) || !table %in% tables) return(data.frame())
     fields <- DBI::dbListFields(con, table)
     if ("territory_id" %in% fields) {
@@ -106,14 +133,27 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     } else {
       code <- suppressWarnings(as.integer(territory_id))
       if (is.na(code)) return(data.frame())
-      sql <- sprintf(
-        "SELECT date, value FROM %s WHERE code_muni BETWEEN ? AND ? ORDER BY date",
-        DBI::dbQuoteIdentifier(con, table)
-      )
-      params <- list(code * 10L, code * 10L + 9L)
+      if (nchar(as.character(territory_id)) >= 7L) {
+        sql <- sprintf(
+          "SELECT date, value FROM %s WHERE code_muni = ? ORDER BY date",
+          DBI::dbQuoteIdentifier(con, table)
+        )
+        params <- list(code)
+      } else {
+        sql <- sprintf(
+          "SELECT date, value FROM %s WHERE code_muni BETWEEN ? AND ? ORDER BY date",
+          DBI::dbQuoteIdentifier(con, table)
+        )
+        params <- list(code * 10L, code * 10L + 9L)
+      }
     }
     result <- DBI::dbGetQuery(con, sql, params = params)
-    if (nrow(result)) result$date <- as.POSIXct(result$date, tz = "UTC")
+    if (nrow(result)) {
+      result$date <- as.POSIXct(result$date, tz = "UTC")
+      series_scale <- if (is.null(cfg$series_scale)) 1 else cfg$series_scale
+      series_offset <- if (is.null(cfg$series_offset)) 0 else cfg$series_offset
+      result$value <- result$value * series_scale + series_offset
+    }
     query_cache$set(key, result)
     result
   }
@@ -146,6 +186,9 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     territories = territories,
     fires = fires,
     raster_image = raster_image,
+    forecast_horizons = function(id) raster_horizons[[id]],
+    normalize_horizon = normalize_horizon,
+    future_horizons = future_horizons,
     query_series = query_series,
     analysis_time = analysis_time,
     territory_geometry = territory_geometry,
@@ -161,6 +204,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
 normalize_territories <- function(x) {
   stopifnot(inherits(x, "sf"))
   names_x <- names(x)
+  source_municipality_code <- if ("code_muni" %in% names_x) as.character(x$code_muni) else NULL
   pick <- function(candidates, fallback = NA_character_) {
     hit <- candidates[candidates %in% names_x]
     if (length(hit)) {
@@ -179,10 +223,16 @@ normalize_territories <- function(x) {
   x$country_code <- pick(c("country_code", "iso3", "iso_a3"), "BRA")
   x$country_name <- pick(c("country_name", "country"), ifelse(x$country_code == "BRA", "Brasil", x$country_code))
 
+  # As tabelas municipais usam o codigo IBGE completo (7 digitos), enquanto
+  # o identificador historico do app usa os 6 primeiros digitos.
+  legacy_brazil_code <- !("territory_id" %in% names_x) & !is.null(source_municipality_code) &
+    x$country_code == "BRA" & grepl("^[0-9]{7}$", x$territory_id)
+  x$territory_id[legacy_brazil_code] <- substr(x$territory_id[legacy_brazil_code], 1, 6)
+
   # Aliases mantem compatibilidade com o banco municipal brasileiro atual.
   x$place_id <- x$territory_id
   x$place_name <- x$territory_name
-  x$code_muni <- x$territory_id
+  x$code_muni <- if (is.null(source_municipality_code)) x$territory_id else source_municipality_code
   x$name_muni <- x$territory_name
   local_detail <- ifelse(nzchar(x$admin1_code), paste0(" - ", x$admin1_code), "")
   country_detail <- ifelse(x$country_code == "BRA", "", paste0(" · ", x$country_name))
