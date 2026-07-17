@@ -633,6 +633,8 @@ app_server <- function(store) {
     totem_cycle_waiting <- reactiveVal(FALSE)
     totem_cycle_generation <- reactiveVal(0L)
     animation_duration_ms <- 30 * 1000
+    totem_overview_duration_ms <- 2200
+    totem_overview_hold_ms <- 1000
 
     update_play_button <- function() {
       language <- isolate(current_language())
@@ -681,14 +683,31 @@ app_server <- function(store) {
         if (!isTRUE(isolate(totem_active()))) return()
         if (!identical(isolate(totem_cycle_generation()), generation)) return()
 
-        select_random_municipality()
-        id <- isolate(input$indicator %||% store$default_indicator)
-        horizons <- store$forecast_horizons(id)
-        totem_cycle_waiting(FALSE)
-        frame_pending(FALSE)
-        if (length(horizons)) {
-          updateSliderInput(session, "horizon", value = min(horizons))
-        }
+        regional_view <- coverage_config("lac")
+        try(
+          mapgl::fly_to(
+            mapgl::maplibre_proxy("forecast_map", session),
+            center = regional_view$center,
+            zoom = regional_view$zoom,
+            duration = totem_overview_duration_ms,
+            essential = TRUE
+          ),
+          silent = TRUE
+        )
+
+        later::later(function() {
+          if (!isTRUE(isolate(totem_active()))) return()
+          if (!identical(isolate(totem_cycle_generation()), generation)) return()
+
+          select_random_municipality()
+          id <- isolate(input$indicator %||% store$default_indicator)
+          horizons <- store$forecast_horizons(id)
+          totem_cycle_waiting(FALSE)
+          frame_pending(FALSE)
+          if (length(horizons)) {
+            updateSliderInput(session, "horizon", value = min(horizons))
+          }
+        }, delay = (totem_overview_duration_ms + totem_overview_hold_ms) / 1000)
       }, delay = 5)
       invisible(TRUE)
     }
@@ -772,6 +791,7 @@ app_server <- function(store) {
           frame_pending(FALSE)
           updateSliderInput(session, "horizon", value = min(horizons))
         }
+        update_selected_territory()
       } else {
         cancel_totem_cycle()
         totem_active(FALSE)
