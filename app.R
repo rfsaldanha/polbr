@@ -1,6 +1,14 @@
 required_packages <- c(
-  "shiny", "bslib", "mapgl", "terra", "sf", "DBI", "duckdb",
-  "jsonlite", "png", "cachem"
+  "shiny",
+  "bslib",
+  "mapgl",
+  "terra",
+  "sf",
+  "DBI",
+  "duckdb",
+  "jsonlite",
+  "png",
+  "cachem"
 )
 
 missing_packages <- required_packages[
@@ -9,7 +17,8 @@ missing_packages <- required_packages[
 
 if (length(missing_packages)) {
   stop(
-    "Pacotes ausentes: ", paste(missing_packages, collapse = ", "),
+    "Pacotes ausentes: ",
+    paste(missing_packages, collapse = ", "),
     ". Consulte o README para instalar as dependencias."
   )
 }

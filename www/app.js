@@ -4,6 +4,8 @@
   const overlays = new Map();
   const rasterPreloads = new Map();
   const jsonPreloads = new Map();
+  const latestRasterTokens = new Map();
+  const windPerformanceModes = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
 
@@ -24,7 +26,7 @@
       image.onerror = () => reject(new Error("Falha ao carregar " + url));
       image.src = url;
     });
-    return remember(rasterPreloads, url, promise, 24);
+    return remember(rasterPreloads, url, promise, 32);
   }
 
   function loadJson(url) {
@@ -33,7 +35,7 @@
       if (!response.ok) throw new Error("HTTP " + response.status);
       return response.json();
     });
-    return remember(jsonPreloads, url, promise, 16);
+    return remember(jsonPreloads, url, promise, 24);
   }
 
   function preloadResources(message) {
@@ -79,7 +81,11 @@
     canvas.className = "wind-canvas";
     el.appendChild(canvas);
     const ctx = canvas.getContext("2d");
-    const state = {el, map, canvas, ctx, grid: null, active: false, frame: null, particles: [], token: 0};
+    const state = {
+      el, map, canvas, ctx, grid: null, active: false, moving: false,
+      performanceMode: false, lastDrawAt: 0,
+      frame: null, particles: [], token: 0
+    };
     // Visual advection scale only; wind values and color classes stay unchanged.
     const particleAdvection = .0035;
 
@@ -92,6 +98,20 @@
       canvas.style.height = rect.height + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       seed();
+    }
+
+    function clear() {
+      ctx.clearRect(0, 0, el.clientWidth, el.clientHeight);
+    }
+
+    function stop() {
+      if (state.frame) cancelAnimationFrame(state.frame);
+      state.frame = null;
+    }
+
+    function start() {
+      if (!state.active || !state.grid || state.moving || state.frame) return;
+      state.frame = requestAnimationFrame(draw);
     }
 
     function randomParticle() {
@@ -118,26 +138,47 @@
     }
 
     function seed() {
-      const count = Math.max(260, Math.min(1250, Math.round((el.clientWidth * el.clientHeight) / 1150)));
+      const baseCount = Math.round((el.clientWidth * el.clientHeight) / 1150);
+      const count = state.performanceMode
+        ? Math.max(140, Math.min(650, Math.round(baseCount * .5)))
+        : Math.max(260, Math.min(1250, baseCount));
       state.particles = Array.from({length: count}, randomParticle);
-      ctx.clearRect(0, 0, el.clientWidth, el.clientHeight);
+      clear();
     }
 
-    function color(speed) {
-      if (speed < 2) return "rgba(86,165,190,.50)";
-      if (speed < 5) return "rgba(83,217,199,.66)";
-      if (speed < 9) return "rgba(190,239,121,.80)";
-      return "rgba(255,226,112,.90)";
+    const windColors = [
+      "rgba(86,165,190,.50)",
+      "rgba(83,217,199,.66)",
+      "rgba(190,239,121,.80)",
+      "rgba(255,226,112,.90)"
+    ];
+
+    function colorIndex(speed) {
+      if (speed < 2) return 0;
+      if (speed < 5) return 1;
+      if (speed < 9) return 2;
+      return 3;
     }
 
-    function draw() {
-      if (!state.active || !state.grid) return;
+    function draw(timestamp) {
+      state.frame = null;
+      const mapIsMoving = typeof map.isMoving === "function" && map.isMoving();
+      if (!state.active || !state.grid || state.moving || mapIsMoving) {
+        clear();
+        return;
+      }
+      if (state.performanceMode && timestamp - state.lastDrawAt < 1000 / 30) {
+        start();
+        return;
+      }
+      state.lastDrawAt = timestamp;
       const width = el.clientWidth, height = el.clientHeight;
       ctx.globalCompositeOperation = "destination-in";
       ctx.fillStyle = "rgba(0,0,0,.91)";
       ctx.fillRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
       ctx.lineWidth = .95;
+      const paths = [[], [], [], []];
 
       for (let i = 0; i < state.particles.length; i++) {
         let p = state.particles[i];
@@ -146,37 +187,94 @@
         if (!wind) { state.particles[i] = randomParticle(); continue; }
         const a = map.project([p.lon, p.lat]);
         const latFactor = Math.max(.25, Math.cos(p.lat * Math.PI / 180));
-        const nextLon = p.lon + wind.u * particleAdvection / latFactor;
-        const nextLat = p.lat + wind.v * particleAdvection;
-        const b = map.project([nextLon, nextLat]);
-        if (b.x < 0 || b.y < 0 || b.x > width || b.y > height || Math.abs(b.x-a.x) > 12 || Math.abs(b.y-a.y) > 12) {
+        const lonStep = wind.u * particleAdvection / latFactor;
+        const latStep = wind.v * particleAdvection;
+        let nextLon = p.lon + lonStep;
+        let nextLat = p.lat + latStep;
+        let b = map.project([nextLon, nextLat]);
+        const projectedLength = Math.hypot(b.x - a.x, b.y - a.y);
+        const maxProjectedStep = 1.6 + Math.min(wind.speed, 16) * .14;
+
+        // A fixed geographic step becomes excessively long at high zoom.
+        // Scale only the visual advection so the meteorological vector remains unchanged.
+        if (Number.isFinite(projectedLength) && projectedLength > maxProjectedStep) {
+          const scale = maxProjectedStep / projectedLength;
+          nextLon = p.lon + lonStep * scale;
+          nextLat = p.lat + latStep * scale;
+          b = map.project([nextLon, nextLat]);
+        }
+
+        if (
+          !Number.isFinite(a.x) || !Number.isFinite(a.y) ||
+          !Number.isFinite(b.x) || !Number.isFinite(b.y) ||
+          a.x < 0 || a.y < 0 || a.x > width || a.y > height ||
+          b.x < 0 || b.y < 0 || b.x > width || b.y > height
+        ) {
           state.particles[i] = randomParticle(); continue;
         }
-        ctx.strokeStyle = color(wind.speed);
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        paths[colorIndex(wind.speed)].push(a.x, a.y, b.x, b.y);
         p.lon = nextLon; p.lat = nextLat;
       }
-      state.frame = requestAnimationFrame(draw);
+
+      for (let index = 0; index < paths.length; index++) {
+        const path = paths[index];
+        if (!path.length) continue;
+        ctx.strokeStyle = windColors[index];
+        ctx.beginPath();
+        for (let offset = 0; offset < path.length; offset += 4) {
+          ctx.moveTo(path[offset], path[offset + 1]);
+          ctx.lineTo(path[offset + 2], path[offset + 3]);
+        }
+        ctx.stroke();
+      }
+      start();
     }
 
     state.setActive = function(active) {
-      state.active = active;
-      if (!active) {
-        if (state.frame) cancelAnimationFrame(state.frame);
-        state.frame = null;
-        ctx.clearRect(0, 0, el.clientWidth, el.clientHeight);
-      } else if (!state.frame && state.grid) {
-        seed(); draw();
+      const nextActive = Boolean(active);
+      if (state.active === nextActive) {
+        if (nextActive) start();
+        return;
+      }
+      state.active = nextActive;
+      if (!nextActive) {
+        stop();
+        clear();
+      } else if (state.grid) {
+        seed();
+        start();
       }
     };
     state.setGrid = function(grid) {
       state.grid = grid;
-      if (state.active && !state.frame) { seed(); draw(); }
+      if (state.active) {
+        seed();
+        start();
+      }
+    };
+    state.setPerformanceMode = function(reduced) {
+      const nextMode = Boolean(reduced);
+      if (state.performanceMode === nextMode) return;
+      state.performanceMode = nextMode;
+      state.lastDrawAt = 0;
+      if (state.active && state.grid) {
+        seed();
+        start();
+      }
     };
 
     new ResizeObserver(resize).observe(el);
-    map.on("movestart", () => ctx.clearRect(0, 0, el.clientWidth, el.clientHeight));
-    map.on("moveend", seed);
+    map.on("movestart", () => {
+      state.moving = true;
+      stop();
+      clear();
+    });
+    map.on("moveend", () => {
+      state.moving = false;
+      if (!state.active || !state.grid) return;
+      seed();
+      start();
+    });
     resize();
     return state;
   }
@@ -188,7 +286,11 @@
     while (!el.map && attempts++ < 40) await new Promise(resolve => setTimeout(resolve, 100));
     if (!el.map) return;
     let overlay = overlays.get(message.mapId);
-    if (!overlay) { overlay = makeOverlay(el, el.map); overlays.set(message.mapId, overlay); }
+    if (!overlay) {
+      overlay = makeOverlay(el, el.map);
+      overlay.setPerformanceMode(Boolean(windPerformanceModes.get(message.mapId)));
+      overlays.set(message.mapId, overlay);
+    }
     const token = ++overlay.token;
     overlay.setActive(Boolean(message.active));
     if (!message.active || !message.url) return;
@@ -201,7 +303,16 @@
     }
   }
 
+  function updateWindPerformance(message) {
+    const reduced = Boolean(message.reduced);
+    windPerformanceModes.set(message.mapId, reduced);
+    const overlay = overlays.get(message.mapId);
+    if (overlay) overlay.setPerformanceMode(reduced);
+  }
+
   async function updateRaster(message) {
+    const token = String(message.token || "");
+    latestRasterTokens.set(message.mapId, token);
     const el = getMapElement(message.mapId);
     if (!el) return;
     let attempts = 0;
@@ -209,6 +320,7 @@
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     if (!el.map || !el.map.isStyleLoaded()) return;
+    if (latestRasterTokens.get(message.mapId) !== token) return;
 
     const acknowledge = (() => {
       let sent = false;
@@ -226,10 +338,13 @@
 
     try {
       await loadImage(message.url);
+      if (latestRasterTokens.get(message.mapId) !== token) return;
 
       const map = el.map;
       const source = map.getSource("forecast");
-      map.once("idle", () => acknowledge(true));
+      map.once("idle", () => {
+        if (latestRasterTokens.get(message.mapId) === token) acknowledge(true);
+      });
       if (source && typeof source.updateImage === "function") {
         source.updateImage({url: message.url, coordinates: message.coordinates});
       } else {
@@ -246,13 +361,15 @@
           source: "forecast",
           paint: {
             "raster-opacity": .82,
-            "raster-fade-duration": 0,
+            "raster-fade-duration": 120,
             "raster-resampling": "linear"
           }
         });
       }
       map.triggerRepaint();
-      window.setTimeout(() => acknowledge(true), 3000);
+      window.setTimeout(() => {
+        if (latestRasterTokens.get(message.mapId) === token) acknowledge(true);
+      }, 3000);
     } catch (error) {
       console.error("Falha ao atualizar raster:", error);
       acknowledge(false, String(error));
@@ -576,6 +693,7 @@
 
   function registerHandlers() {
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
+    Shiny.addCustomMessageHandler("alertar:wind-performance", updateWindPerformance);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);

@@ -59,8 +59,24 @@ local_midnight_ticks <- function(time, timezone) {
   ticks[as.numeric(ticks) >= time_range[[1]] & as.numeric(ticks) <= time_range[[2]]]
 }
 
+forecast_y_range <- function(data, cfg) {
+  configured <- as.numeric(cfg$range)
+  values <- data$value[is.finite(data$value)]
+  if (!length(values)) return(configured)
+
+  observed_max <- max(values)
+  if (observed_max <= configured[[2]]) return(configured)
+
+  configured_span <- max(.Machine$double.eps, diff(configured))
+  candidate <- observed_max + max(configured_span * .04, abs(observed_max) * .04)
+  ticks <- pretty(c(configured[[1]], candidate), n = 5)
+  upper_candidates <- ticks[ticks >= candidate]
+  upper <- if (length(upper_candidates)) min(upper_candidates) else candidate
+  c(configured[[1]], upper)
+}
+
 draw_forecast_plot <- function(data, cfg, references, language, timezone, target, large = FALSE) {
-  y_range <- cfg$range
+  y_range <- forecast_y_range(data, cfg)
   selected_index <- which.min(abs(as.numeric(data$date - target)))
   selected_y <- pmax(y_range[[1]], pmin(y_range[[2]], data$value[[selected_index]]))
   y_ticks <- pretty(y_range, n = if (large) 5 else 3)
@@ -183,6 +199,9 @@ app_server <- function(store) {
     }
     default_territory <- if ("330455" %in% territories$territory_id) "330455" else territories$territory_id[[1]]
     map_ready <- reactiveVal(FALSE)
+    displayed_horizon <- reactiveVal(12)
+    pending_raster <- reactiveVal(NULL)
+    raster_request_sequence <- 0L
 
     session$onFlushed(function() {
       language <- isolate(current_language())
@@ -197,6 +216,7 @@ app_server <- function(store) {
       initial_id <- isolate(input$indicator %||% store$default_indicator)
       initial_horizon <- isolate(input$horizon %||% 12)
       initial_image <- store$raster_image(initial_id, initial_horizon)
+      displayed_horizon(initial_image$horizon)
 
       map <- mapgl::maplibre(
         style = mapgl::carto_style("dark-matter"),
@@ -221,7 +241,7 @@ app_server <- function(store) {
         ) |>
         mapgl::add_raster_layer(
           id = "forecast", source = "forecast", raster_opacity = .82,
-          raster_fade_duration = 0, raster_resampling = "linear"
+          raster_fade_duration = 120, raster_resampling = "linear"
         )
 
       if (!is.null(store$fires) && nrow(store$fires)) {
@@ -265,11 +285,13 @@ app_server <- function(store) {
     layer_request <- reactive({
       req(input$indicator, input$horizon)
       list(id = input$indicator, horizon = selected_horizon(), revision = data_revision())
-    }) |> debounce(100)
+    }) |> debounce(50)
 
     update_raster <- function(id, horizon, revision = data_revision()) {
       image <- store$raster_image(id, horizon)
-      token <- paste(id, horizon, revision, sep = "-")
+      raster_request_sequence <<- raster_request_sequence + 1L
+      token <- paste(id, image$horizon, revision, raster_request_sequence, sep = "-")
+      pending_raster(list(token = token, id = id, horizon = image$horizon))
       session$sendCustomMessage(
         "alertar:raster",
         list(
@@ -282,26 +304,62 @@ app_server <- function(store) {
     }
 
     preload_generation <- 0L
-    schedule_raster_preload <- function(id, horizon, frames = 4L) {
+    preload_indicator <- NULL
+    preload_revision <- NULL
+    preload_last_horizon <- NULL
+    preload_jobs <- new.env(parent = emptyenv())
+    preload_completed <- new.env(parent = emptyenv())
+
+    reset_raster_preload <- function(id, horizon, revision) {
       preload_generation <<- preload_generation + 1L
+      preload_indicator <<- id
+      preload_revision <<- revision
+      preload_last_horizon <<- horizon
+      rm(list = ls(envir = preload_jobs, all.names = TRUE), envir = preload_jobs)
+      rm(list = ls(envir = preload_completed, all.names = TRUE), envir = preload_completed)
+    }
+
+    schedule_raster_preload <- function(id, horizon, frames = 16L, revision = data_revision()) {
+      horizon <- store$normalize_horizon(id, horizon)
+      restart <- !identical(id, preload_indicator) ||
+        !identical(revision, preload_revision) ||
+        (!is.null(preload_last_horizon) && is.finite(horizon) && horizon < preload_last_horizon)
+      if (restart) reset_raster_preload(id, horizon, revision)
+      preload_last_horizon <<- horizon
+
       generation <- preload_generation
       preload_horizons <- store$future_horizons(id, horizon, frames)
+      queue_index <- 0L
       for (i in seq_along(preload_horizons)) {
+        preload_horizon <- preload_horizons[[i]]
+        key <- paste(id, preload_horizon, revision, sep = "-")
+        if (exists(key, envir = preload_jobs, inherits = FALSE) ||
+            exists(key, envir = preload_completed, inherits = FALSE)) next
+
+        queue_index <- queue_index + 1L
+        assign(key, TRUE, envir = preload_jobs)
         local({
-          preload_horizon <- preload_horizons[[i]]
-          preload_delay <- 0.15 + (i - 1L) * 0.35
+          job_id <- id
+          job_key <- key
+          job_horizon <- preload_horizon
+          job_generation <- generation
+          preload_delay <- 0.05 + (queue_index - 1L) * 0.24
           later::later(function() {
-            if (generation != preload_generation) return(invisible(NULL))
+            if (job_generation != preload_generation) return(invisible(NULL))
             image <- tryCatch(
-              store$raster_image(id, preload_horizon),
+              store$raster_image(job_id, job_horizon),
               error = function(error) NULL
             )
+            if (exists(job_key, envir = preload_jobs, inherits = FALSE)) {
+              rm(list = job_key, envir = preload_jobs)
+            }
             if (is.null(image)) return(invisible(NULL))
+            assign(job_key, TRUE, envir = preload_completed)
             session$sendCustomMessage(
               "alertar:preload",
               list(
                 rasterUrls = list(image$url),
-                windUrls = if (store$wind_available) list(store$wind_url(preload_horizon)) else list()
+                windUrls = if (store$wind_available) list(store$wind_url(job_horizon)) else list()
               )
             )
           }, delay = preload_delay)
@@ -457,7 +515,7 @@ app_server <- function(store) {
     selected_value <- reactive({
       data <- series()
       if (!nrow(data)) return(NA_real_)
-      target <- forecast_origin() + selected_horizon() * 3600
+      target <- forecast_origin() + displayed_horizon() * 3600
       data$value[[which.min(abs(as.numeric(difftime(data$date, target, units = "secs"))))]]
     })
 
@@ -475,13 +533,31 @@ app_server <- function(store) {
     output$forecast_time <- renderUI({
       language <- current_language()
       timezone <- current_timezone()
-      horizon <- selected_horizon()
+      horizon <- displayed_horizon()
       time <- in_timezone(forecast_origin() + horizon * 3600, timezone)
-      date_format <- if (language == "en") "%Y-%m-%d • %H:%M" else "%d/%m/%Y • %H:%M"
+      date_format <- if (language == "en") "%Y-%m-%d · %H:%M" else "%d/%m/%Y · %H:%M"
       tagList(
-        strong(sprintf("+%03dh", horizon)),
-        span(paste(format(time, date_format, tz = timezone), timezone_code(timezone)))
+        strong(class = "forecast-datetime", format(time, date_format, tz = timezone)),
+        span(class = "forecast-step", sprintf("+%03dh · %s", horizon, timezone_code(timezone)))
       )
+    })
+
+    output$timeline_labels <- renderUI({
+      language <- current_language()
+      timezone <- current_timezone()
+      horizons <- seq(0, 120, by = 24)
+      times <- in_timezone(forecast_origin() + horizons * 3600, timezone)
+      date_format <- if (language == "en") "%m/%d" else "%d/%m"
+
+      tagList(lapply(seq_along(horizons), function(index) {
+        span(
+          class = "timeline-date-label",
+          `data-horizon` = horizons[[index]],
+          style = sprintf("--timeline-position: %.4f%%", 100 * horizons[[index]] / max(horizons)),
+          span(class = "timeline-label-date", format(times[[index]], date_format, tz = timezone)),
+          span(class = "timeline-label-time", format(times[[index]], "%H:%M", tz = timezone))
+        )
+      }))
     })
 
     output$indicator_summary <- renderUI({
@@ -498,9 +574,12 @@ app_server <- function(store) {
     output$local_reading <- renderUI({
       req(input$territory)
       language <- current_language()
+      timezone <- current_timezone()
       cfg <- selected_config()
       territory <- territories[territories$territory_id == input$territory, , drop = FALSE]
       value <- selected_value()
+      forecast_time <- in_timezone(forecast_origin() + displayed_horizon() * 3600, timezone)
+      date_format <- if (language == "en") "%Y-%m-%d" else "%d/%m/%Y"
       territory_type <- as.character(territory$territory_type[[1]])
       if (tolower(territory_type) %in% c("municipio", "município", "municipality", "commune")) {
         territory_type <- tr(language, "territory_municipality")
@@ -513,9 +592,21 @@ app_server <- function(store) {
           span(class = "territory-type", territory_type)
         ),
         div(
-          class = "value-row",
-          span(class = "reading-value", if (is.finite(value)) format(round(value, cfg$digits), nsmall = cfg$digits, decimal.mark = decimal_mark) else "—"),
-          span(class = "reading-unit", pretty_unit(cfg$unit))
+          class = "reading-summary",
+          div(
+            class = "value-row",
+            span(class = "reading-value", if (is.finite(value)) format(round(value, cfg$digits), nsmall = cfg$digits, decimal.mark = decimal_mark) else "—"),
+            span(class = "reading-unit", pretty_unit(cfg$unit))
+          ),
+          div(
+            class = "reading-time",
+            icon("clock"),
+            tags$time(
+              datetime = format(forecast_time, "%Y-%m-%dT%H:%M:%S%z", tz = timezone),
+              span(class = "reading-date", format(forecast_time, date_format, tz = timezone)),
+              span(class = "reading-hour", paste(format(forecast_time, "%H:%M", tz = timezone), timezone_code(timezone)))
+            )
+          )
         ),
         div(class = "reading-caption", tr(language, "reading_caption"))
       )
@@ -532,7 +623,7 @@ app_server <- function(store) {
         function(reference, index) localized_reference(language, id, reference, index),
         cfg$references %||% list(), seq_along(cfg$references %||% list())
       )
-      target <- forecast_origin() + selected_horizon() * 3600
+      target <- forecast_origin() + displayed_horizon() * 3600
       draw_forecast_plot(data, cfg, references, language, timezone, target, large = FALSE)
     }, bg = "transparent", res = 110)
 
@@ -547,7 +638,7 @@ app_server <- function(store) {
         function(reference, index) localized_reference(language, id, reference, index),
         cfg$references %||% list(), seq_along(cfg$references %||% list())
       )
-      target <- forecast_origin() + selected_horizon() * 3600
+      target <- forecast_origin() + displayed_horizon() * 3600
       draw_forecast_plot(data, cfg, references, language, timezone, target, large = TRUE)
     }, bg = "#091720", res = 130)
 
@@ -566,7 +657,7 @@ app_server <- function(store) {
           function(reference, index) localized_reference(language, id, reference, index),
           cfg$references %||% list(), seq_along(cfg$references %||% list())
         )
-        target <- forecast_origin() + selected_horizon() * 3600
+        target <- forecast_origin() + displayed_horizon() * 3600
         grDevices::png(file, width = 1800, height = 1000, res = 180, bg = "#091720")
         on.exit(grDevices::dev.off(), add = TRUE)
         draw_forecast_plot(data, cfg, references, language, timezone, target, large = TRUE)
@@ -630,6 +721,7 @@ app_server <- function(store) {
 
     playing <- reactiveVal(FALSE)
     frame_pending <- reactiveVal(FALSE)
+    animation_restarting <- reactiveVal(FALSE)
     totem_cycle_waiting <- reactiveVal(FALSE)
     totem_cycle_generation <- reactiveVal(0L)
     animation_duration_ms <- 30 * 1000
@@ -644,6 +736,10 @@ app_server <- function(store) {
         "play",
         label = if (is_playing) tr(language, "pause") else tr(language, "animate"),
         icon = icon(if (is_playing) "pause" else "play")
+      )
+      session$sendCustomMessage(
+        "alertar:wind-performance",
+        list(mapId = session$ns("forecast_map"), reduced = is_playing)
       )
     }
 
@@ -751,9 +847,9 @@ app_server <- function(store) {
             list(
               tr(language, "history"), tr(language, "about"),
               tr(language, "layer_heading"), tr(language, "local_heading"),
-              tr(language, "download_series"), tr(language, "now"), tr(language, "forecast_horizon")
+              tr(language, "download_series"), tr(language, "forecast_horizon")
             ),
-            c("label-history", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-now", "label-forecast-horizon")
+            c("label-history", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-forecast-horizon")
           ),
           mapControls = stats::setNames(
             list(
@@ -783,6 +879,7 @@ app_server <- function(store) {
         totem_active(TRUE)
         totem_last_refresh(Sys.time())
         cancel_totem_cycle()
+        animation_restarting(FALSE)
         playing(TRUE)
         update_play_button()
         id <- isolate(input$indicator %||% store$default_indicator)
@@ -801,29 +898,56 @@ app_server <- function(store) {
     }, ignoreInit = TRUE)
 
     observeEvent(input$play, {
+      if (isTRUE(isolate(playing()))) {
+        playing(FALSE)
+        animation_restarting(FALSE)
+        if (isTRUE(isolate(totem_active()))) cancel_totem_cycle()
+        update_play_button()
+        return()
+      }
+
       if (isTRUE(isolate(totem_active()))) {
         playing(TRUE)
         update_play_button()
         return()
       }
-      playing(!playing())
+
+      id <- isolate(input$indicator %||% store$default_indicator)
+      horizons <- store$forecast_horizons(id)
+      current_horizon <- store$normalize_horizon(id, isolate(input$horizon))
+      if (length(horizons) && identical(current_horizon, max(horizons))) {
+        animation_restarting(TRUE)
+        frame_pending(TRUE)
+        updateSliderInput(session, "horizon", value = min(horizons))
+      } else {
+        animation_restarting(FALSE)
+      }
+      playing(TRUE)
       update_play_button()
     })
 
     observeEvent(input$forecast_map_raster_ready, {
       result <- input$forecast_map_raster_ready
+      pending <- isolate(pending_raster())
+      if (is.null(pending) || !identical(as.character(result$token), pending$token)) return()
       frame_pending(FALSE)
       if (identical(result$ok, FALSE)) {
-        if (!isTRUE(isolate(totem_active()))) playing(FALSE)
+        if (!isTRUE(isolate(totem_active()))) {
+          playing(FALSE)
+          animation_restarting(FALSE)
+        }
         update_play_button()
         showNotification(tr(current_language(), "raster_error"), type = "error")
       } else if (isTRUE(isolate(totem_active()))) {
-        id <- isolate(input$indicator %||% store$default_indicator)
+        displayed_horizon(pending$horizon)
+        id <- pending$id
         horizons <- store$forecast_horizons(id)
-        current_horizon <- store$normalize_horizon(id, isolate(input$horizon))
+        current_horizon <- pending$horizon
         if (length(horizons) && identical(current_horizon, max(horizons))) {
           schedule_totem_cycle()
         }
+      } else {
+        displayed_horizon(pending$horizon)
       }
     })
 
@@ -835,6 +959,10 @@ app_server <- function(store) {
       if (!isolate(playing())) return()
       if (isolate(frame_pending())) return()
       current_horizon <- store$normalize_horizon(id, isolate(input$horizon))
+      if (isTRUE(isolate(animation_restarting()))) {
+        if (!length(horizons) || !identical(current_horizon, min(horizons))) return()
+        animation_restarting(FALSE)
+      }
       next_horizon <- store$future_horizons(id, current_horizon, 1L)
       if (!length(next_horizon)) {
         if (isTRUE(isolate(totem_active()))) {

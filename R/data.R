@@ -81,6 +81,9 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   raster_target_size <- min(raster_target_size, 2048L)
 
   render_raster <- function(layer) {
+    # MapLibre image sources interpolate the four image corners in projected
+    # space. Project first so continental rasters stay aligned by latitude.
+    layer <- terra::project(layer, "EPSG:3857", method = "bilinear")
     longest_side <- max(terra::ncol(layer), terra::nrow(layer))
     factor <- min(8L, max(1L, ceiling(raster_target_size / longest_side)))
     if (factor > 1L) {
@@ -89,12 +92,26 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     list(layer = layer, factor = factor)
   }
 
+  raster_coordinates <- function(layer) {
+    extent <- terra::ext(layer)
+    corners <- terra::vect(
+      cbind(
+        c(extent$xmin, extent$xmax, extent$xmax, extent$xmin),
+        c(extent$ymax, extent$ymax, extent$ymin, extent$ymin)
+      ),
+      type = "points",
+      crs = terra::crs(layer)
+    )
+    longitude_latitude <- terra::crds(terra::project(corners, "EPSG:4326"))
+    lapply(seq_len(nrow(longitude_latitude)), function(i) unname(longitude_latitude[i, ]))
+  }
+
   raster_image <- function(id, horizon) {
     cfg <- catalog[[id]]
     x <- rasters[[id]]
     actual_horizon <- normalize_horizon(id, horizon)
     index <- match(actual_horizon, raster_horizons[[id]])
-    key <- paste0("image-v2-", raster_target_size, "-", id, "-layer-", index)
+    key <- paste0("image-v3-webmercator-", raster_target_size, "-", id, "-layer-", index)
     if (image_cache$exists(key)) return(image_cache$get(key))
 
     layer <- x[[index]] * cfg$scale + cfg$offset
@@ -124,19 +141,13 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
 
     png_path <- file.path(image_dir, sprintf("%s-%03d.png", id, index))
     png::writePNG(image, png_path)
-    extent <- terra::ext(layer)
     result <- list(
       url = sprintf(
         "forecast-images/%s?v=%s",
         basename(png_path),
         as.integer(file.info(png_path)$mtime)
       ),
-      coordinates = list(
-        unname(c(extent$xmin, extent$ymax)),
-        unname(c(extent$xmax, extent$ymax)),
-        unname(c(extent$xmax, extent$ymin)),
-        unname(c(extent$xmin, extent$ymin))
-      ),
+      coordinates = raster_coordinates(layer),
       index = index,
       horizon = actual_horizon,
       width = terra::ncol(layer),

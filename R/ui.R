@@ -262,7 +262,7 @@ app_ui <- function(store) {
         div(
           class = "timeline-control",
           sliderInput("horizon", NULL, min = 0, max = 120, value = 12, step = 3, ticks = FALSE),
-          div(class = "day-labels", span(id = "label-now", tr("pt", "now")), span("+24h"), span("+48h"), span("+72h"), span("+96h"), span("+120h"))
+          uiOutput("timeline_labels", container = div, class = "day-labels")
         )
       )
     )

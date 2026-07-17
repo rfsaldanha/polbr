@@ -138,8 +138,8 @@ coverage_config <- function(id = Sys.getenv("ALERTAR_COVERAGE", "brazil")) {
     brazil = list(
       id = "brazil",
       label = "Brasil",
-      center = c(-53.2, -14.2),
-      zoom = 2,
+      center = c(-60, -17),
+      zoom = 2.5,
       map_language = map_language,
       bounds = list(c(-74.5, -34.8), c(-32.0, 6.5))
     ),
