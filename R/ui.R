@@ -55,6 +55,16 @@ about_project_modal <- function(language = "pt") {
         p(tr(language, "about_coverage_p1"))
       ),
       tags$section(
+        class = "about-cams-credit",
+        h3(tr(language, "about_cams_heading")),
+        p(tr(language, "about_cams_attribution", format(Sys.Date(), "%Y"))),
+        tags$a(
+          tr(language, "about_cams_link"),
+          href = "https://confluence.ecmwf.int/spaces/CKB/pages/116952716/SFTP-FTP-HTTPS+data+access+to+CAMS+global+data#SFTPFTPHTTPSdataaccesstoCAMSglobaldata-Attribution",
+          target = "_blank", rel = "noopener noreferrer"
+        )
+      ),
+      tags$section(
         h3(tr(language, "about_code_heading")),
         p(tr(language, "about_code_p1")),
         tags$a(
@@ -65,6 +75,13 @@ about_project_modal <- function(language = "pt") {
           icon("github"), paste0(" ", tr(language, "shiny_application")),
           href = "https://github.com/rfsaldanha/polbr", target = "_blank", rel = "noopener noreferrer"
         )
+      ),
+      tags$section(
+        class = "about-logo-card",
+        tags$img(
+          src = "pin_obs_horizontal_dark.png",
+          alt = "Observatório de Clima e Saúde — ICICT — Fiocruz"
+        )
       )
     ),
     footer = modalButton(tr(language, "close")),
@@ -73,8 +90,28 @@ about_project_modal <- function(language = "pt") {
   )
 }
 
+forecast_chart_modal <- function(language, title) {
+  modalDialog(
+    title = tagList(icon("chart-line"), title),
+    div(
+      class = "forecast-modal-chart",
+      plotOutput("forecast_detail_plot", height = "58vh")
+    ),
+    footer = tagList(
+      downloadButton(
+        "download_forecast_plot", tr(language, "download_chart"),
+        icon = icon("download"), class = "chart-download-button"
+      ),
+      modalButton(tr(language, "close"))
+    ),
+    easyClose = TRUE,
+    size = "xl"
+  )
+}
+
 app_ui <- function(store) {
   catalog <- store$catalog[store$available]
+  timezones <- timezone_catalog()
   indicator_choices <- stats::setNames(
     names(catalog),
     vapply(names(catalog), function(id) indicator_text("pt", id, "short", catalog[[id]]$short), character(1))
@@ -85,6 +122,7 @@ app_ui <- function(store) {
     theme = bslib::bs_theme(version = 5, bg = "#071018", fg = "#edf7ff", primary = "#35d4b4"),
     fillable_mobile = TRUE,
     tags$head(
+      tags$meta(name = "viewport", content = "width=device-width, initial-scale=1, viewport-fit=cover"),
       tags$meta(name = "theme-color", content = "#071018"),
       tags$link(rel = "preconnect", href = "https://basemaps.cartocdn.com"),
       tags$link(rel = "stylesheet", href = "styles.css"),
@@ -126,6 +164,24 @@ app_ui <- function(store) {
             tags$option(value = "en", "EN")
           )
         ),
+        div(
+          class = "timezone-control",
+          icon("clock"),
+          tags$select(
+            id = "timezone",
+            class = "shiny-input-select form-control",
+            title = tr("pt", "timezone_label"),
+            `aria-label` = tr("pt", "timezone_label"),
+            lapply(seq_len(nrow(timezones)), function(i) {
+              tags$option(
+                value = timezones$timezone[[i]],
+                selected = if (timezones$timezone[[i]] == "America/Sao_Paulo") "selected" else NULL,
+                title = timezones$label[[i]],
+                timezones$label[[i]]
+              )
+            })
+          )
+        ),
         actionButton(
           "open_history",
           label = tagList(icon("database"), span(id = "label-history", tr("pt", "history"))),
@@ -140,7 +196,7 @@ app_ui <- function(store) {
 
       tags$aside(
         class = "variable-panel glass-panel",
-        div(class = "panel-heading", span(id = "label-layer-heading", tr("pt", "layer_heading")), span(class = "live-dot")),
+        div(class = "panel-heading", span(id = "label-layer-heading", tr("pt", "layer_heading"))),
         selectInput("indicator", NULL, choices = indicator_choices, selected = store$default_indicator),
         uiOutput("indicator_summary"),
         div(class = "divider"),
@@ -157,11 +213,12 @@ app_ui <- function(store) {
         div(
           class = "panel-heading",
           span(id = "label-local-heading", tr("pt", "local_heading")),
-          actionButton(
-            "toggle_details", "−", class = "icon-button",
+          tags$button(
+            id = "toggle_details", type = "button", class = "icon-button",
             title = tr("pt", "minimize_panel"),
             `aria-label` = tr("pt", "minimize_panel"),
-            `aria-expanded` = "true"
+            `aria-expanded` = "true",
+            "−"
           )
         ),
         div(
@@ -170,7 +227,11 @@ app_ui <- function(store) {
           div(
             id = "details-body",
             uiOutput("local_reading"),
-            plotOutput("forecast_spark", height = "190px"),
+            htmltools::tagAppendAttributes(
+              plotOutput("forecast_spark", height = "190px", click = "forecast_spark_click"),
+              class = "forecast-spark-clickable", role = "button", tabindex = "0",
+              title = tr("pt", "chart_expand"), `aria-label` = tr("pt", "chart_expand")
+            ),
             uiOutput("forecast_references", container = div, class = "reference-guide"),
             downloadButton("download_series", span(id = "label-download", tr("pt", "download_series")), class = "download-link")
           )
@@ -187,6 +248,7 @@ app_ui <- function(store) {
         div(
           class = "timeline-meta",
           actionButton("play", label = tagList(icon("play"), span(tr("pt", "animate"))), class = "play-button"),
+          span(id = "label-forecast-horizon", class = "timeline-title", tr("pt", "forecast_horizon")),
           div(uiOutput("forecast_time", container = div), class = "forecast-clock")
         ),
         div(
@@ -194,9 +256,7 @@ app_ui <- function(store) {
           sliderInput("horizon", NULL, min = 0, max = 120, value = 12, step = 3, ticks = FALSE),
           div(class = "day-labels", span(id = "label-now", tr("pt", "now")), span("+24h"), span("+48h"), span("+72h"), span("+96h"), span("+120h"))
         )
-      ),
-
-      div(id = "label-credits", class = "credits", paste0("CAMS / Copernicus  •  ", store$coverage$label, "  •  LIS / ICICT / Fiocruz"))
+      )
     )
   )
 }

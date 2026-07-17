@@ -1,9 +1,153 @@
+diurnal_fill <- function(time, timezone) {
+  timezone <- normalize_timezone(timezone)
+  local_hour <- as.numeric(format(time, "%H", tz = timezone)) +
+    as.numeric(format(time, "%M", tz = timezone)) / 60
+  daylight <- (cos((local_hour - 12) * pi / 12) + 1) / 2
+  night_rgb <- c(40, 55, 68)
+  day_rgb <- c(190, 155, 55)
+  red <- night_rgb[[1]] + daylight * (day_rgb[[1]] - night_rgb[[1]])
+  green <- night_rgb[[2]] + daylight * (day_rgb[[2]] - night_rgb[[2]])
+  blue <- night_rgb[[3]] + daylight * (day_rgb[[3]] - night_rgb[[3]])
+  grDevices::rgb(red / 255, green / 255, blue / 255, alpha = .12 + daylight * .02)
+}
+
+violation_color <- function(value, threshold, upper) {
+  palette <- grDevices::colorRampPalette(c("#eb9850", "#e47250", "#da506f"))(64)
+  span <- max(.Machine$double.eps, upper - threshold)
+  severity <- pmax(0, pmin(1, (value - threshold) / span))
+  palette[[floor(severity * (length(palette) - 1L)) + 1L]]
+}
+
+draw_threshold_series <- function(x, y, threshold = NA_real_, upper, lwd = 2.2) {
+  lines(x, y, col = "#35d4b4", lwd = lwd)
+  if (!length(threshold) || !is.finite(threshold) || length(x) < 2L) return(invisible(NULL))
+
+  x_numeric <- as.numeric(x)
+  for (i in seq_len(length(x_numeric) - 1L)) {
+    x_pair <- x_numeric[c(i, i + 1L)]
+    y_pair <- y[c(i, i + 1L)]
+    if (!all(is.finite(c(x_pair, y_pair))) || max(y_pair) <= threshold) next
+    color <- violation_color(max(y_pair), threshold, upper)
+    if (min(y_pair) >= threshold) {
+      lines(x_pair, y_pair, col = color, lwd = lwd)
+      next
+    }
+    crossing <- x_pair[[1]] +
+      (threshold - y_pair[[1]]) / diff(y_pair) * diff(x_pair)
+    if (y_pair[[1]] > threshold) {
+      lines(c(x_pair[[1]], crossing), c(y_pair[[1]], threshold), col = color, lwd = lwd)
+    } else {
+      lines(c(crossing, x_pair[[2]]), c(threshold, y_pair[[2]]), col = color, lwd = lwd)
+    }
+  }
+  invisible(NULL)
+}
+
+local_midnight_ticks <- function(time, timezone) {
+  timezone <- normalize_timezone(timezone)
+  local_time <- in_timezone(time, timezone)
+  time_range <- range(as.numeric(local_time))
+  dates <- seq(
+    as.Date(min(local_time), tz = timezone),
+    as.Date(max(local_time), tz = timezone),
+    by = "day"
+  )
+  ticks <- as.POSIXct(
+    paste(dates, "00:00:00"),
+    format = "%Y-%m-%d %H:%M:%S", tz = timezone
+  )
+  ticks[as.numeric(ticks) >= time_range[[1]] & as.numeric(ticks) <= time_range[[2]]]
+}
+
+draw_forecast_plot <- function(data, cfg, references, language, timezone, target, large = FALSE) {
+  y_range <- cfg$range
+  selected_index <- which.min(abs(as.numeric(data$date - target)))
+  selected_y <- pmax(y_range[[1]], pmin(y_range[[2]], data$value[[selected_index]]))
+  y_ticks <- pretty(y_range, n = if (large) 5 else 3)
+  y_ticks <- y_ticks[y_ticks >= y_range[[1]] & y_ticks <= y_range[[2]]]
+  y_labels <- format(
+    round(y_ticks, cfg$digits), trim = TRUE, scientific = FALSE,
+    decimal.mark = if (language == "en") "." else ","
+  )
+  unit_label <- switch(cfg$unit, "ug/m3" = "µg/m³", "C" = "°C", cfg$unit)
+  display_dates <- in_timezone(data$date, timezone)
+  display_target <- in_timezone(target, timezone)
+  x_ticks <- local_midnight_ticks(display_dates, timezone)
+  reference_values <- vapply(references, function(reference) reference$value, numeric(1))
+  reference_values <- reference_values[
+    is.finite(reference_values) & reference_values >= y_range[[1]] & reference_values <= y_range[[2]]
+  ]
+  threshold <- if (length(reference_values)) min(reference_values) else NA_real_
+
+  par(
+    mar = if (large) c(3.1, 2.45, .8, .7) else c(2.2, 2.2, .7, .35),
+    bg = NA, fg = "#7890a0"
+  )
+  plot(
+    display_dates, data$value,
+    type = "n", ylim = y_range, axes = FALSE,
+    xlab = "", ylab = "", xaxs = "i", yaxs = "i"
+  )
+  shade_range <- range(as.numeric(display_dates))
+  shade_steps <- max(2L, ceiling(diff(shade_range) / (30 * 60)))
+  shade_breaks <- seq(shade_range[[1]], shade_range[[2]], length.out = shade_steps + 1L)
+  shade_midpoints <- in_timezone(
+    (head(shade_breaks, -1L) + tail(shade_breaks, -1L)) / 2,
+    timezone
+  )
+  rect(
+    head(shade_breaks, -1L), par("usr")[[3]],
+    tail(shade_breaks, -1L), par("usr")[[4]],
+    col = diurnal_fill(shade_midpoints, timezone), border = NA
+  )
+  abline(h = y_ticks, col = "#7890a022", lwd = .7)
+  abline(v = x_ticks, col = "#7890a014", lwd = .7)
+  for (reference in references) {
+    if (reference$value < y_range[[1]] || reference$value > y_range[[2]]) next
+    abline(h = reference$value, col = reference$color, lwd = if (large) 1.35 else 1.15, lty = 2)
+    label_x <- par("usr")[[2]] - diff(par("usr")[1:2]) * .012
+    text(
+      label_x, reference$value, reference$label,
+      adj = c(1, -.25), col = reference$color,
+      cex = if (large) .72 else .56, font = 2, xpd = FALSE
+    )
+  }
+  draw_threshold_series(
+    display_dates, data$value, threshold = threshold,
+    upper = y_range[[2]], lwd = if (large) 2.7 else 2.2
+  )
+  selected_color <- if (is.finite(threshold) && selected_y > threshold) {
+    violation_color(selected_y, threshold, y_range[[2]])
+  } else "#35d4b4"
+  abline(v = display_target, col = "#f8fafc66", lty = 3)
+  points(
+    display_target, selected_y, pch = 21, bg = selected_color,
+    col = "white", cex = if (large) 1.25 else 1.1
+  )
+  time_format <- if (language == "en") "%m/%d" else "%d/%m"
+  axis.POSIXct(
+    1, x = display_dates, at = x_ticks, format = time_format,
+    col = NA, col.axis = "#7890a0", cex.axis = if (large) .76 else .62, padj = .2
+  )
+  axis(
+    2, at = y_ticks, labels = y_labels, las = 1,
+    col = NA, col.axis = "#7890a0", cex.axis = if (large) .74 else .62,
+    mgp = c(0, if (large) .3 else .18, 0)
+  )
+  mtext(
+    unit_label, side = 2, line = if (large) 1.6 else 1.35,
+    col = "#7890a0", cex = if (large) .72 else .58
+  )
+  invisible(NULL)
+}
+
 app_server <- function(store) {
   force(store)
   function(input, output, session) {
     catalog <- store$catalog
     territories <- store$territories
     current_language <- reactive(normalize_language(input$language))
+    current_timezone <- reactive(normalize_timezone(input$timezone))
     localized_indicator_choices <- function(language) {
       stats::setNames(
         store$available,
@@ -78,9 +222,9 @@ app_server <- function(store) {
         fires <- sf::st_as_sf(store$fires, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
         map <- map |>
           mapgl::add_circle_layer(
-            id = "fires", source = fires, circle_radius = 3.5,
+            id = "fires", source = fires, circle_radius = 2.5,
             circle_color = "#ff6b35", circle_opacity = .88,
-            circle_stroke_color = "#fff1d6", circle_stroke_width = .7,
+            circle_stroke_color = "#fff1d6", circle_stroke_width = .5,
             visibility = "none"
           )
       }
@@ -297,19 +441,24 @@ app_server <- function(store) {
 
     output$update_badge <- renderUI({
       language <- current_language()
-      time <- as.POSIXct(forecast_origin(), tz = "America/Sao_Paulo")
+      timezone <- current_timezone()
+      time <- in_timezone(forecast_origin(), timezone)
       date_format <- if (language == "en") "%Y-%m-%d • %H:%M" else "%d/%m • %H:%M"
-      tagList(span(class = "status-dot"), span(tr(language, "updated", format(time, date_format))))
+      tagList(
+        span(class = "status-dot"),
+        span(tr(language, "updated", format(time, date_format, tz = timezone), timezone_code(timezone)))
+      )
     })
 
     output$forecast_time <- renderUI({
       language <- current_language()
+      timezone <- current_timezone()
       horizon <- selected_horizon()
-      time <- as.POSIXct(forecast_origin() + horizon * 3600, tz = "America/Sao_Paulo")
-      date_format <- if (language == "en") "%Y-%m-%d • %H:%M BRT" else "%d/%m/%Y • %H:%M BRT"
+      time <- in_timezone(forecast_origin() + horizon * 3600, timezone)
+      date_format <- if (language == "en") "%Y-%m-%d • %H:%M" else "%d/%m/%Y • %H:%M"
       tagList(
         strong(sprintf("+%03dh", horizon)),
-        span(format(time, date_format))
+        span(paste(format(time, date_format, tz = timezone), timezone_code(timezone)))
       )
     })
 
@@ -356,56 +505,52 @@ app_server <- function(store) {
       validate(need(nrow(data), tr(language, "series_unavailable")))
       cfg <- selected_config()
       id <- input$indicator
+      timezone <- current_timezone()
       references <- Map(
         function(reference, index) localized_reference(language, id, reference, index),
         cfg$references %||% list(), seq_along(cfg$references %||% list())
       )
       target <- forecast_origin() + selected_horizon() * 3600
-      selected_index <- which.min(abs(as.numeric(data$date - target)))
-      selected_y <- pmax(cfg$range[[1]], pmin(cfg$range[[2]], data$value[[selected_index]]))
-      y_ticks <- pretty(cfg$range, n = 3)
-      y_ticks <- y_ticks[y_ticks >= cfg$range[[1]] & y_ticks <= cfg$range[[2]]]
-      y_labels <- format(
-        round(y_ticks, cfg$digits),
-        trim = TRUE,
-        scientific = FALSE,
-        decimal.mark = if (language == "en") "." else ","
-      )
-
-      unit_label <- switch(
-        cfg$unit,
-        "ug/m3" = "µg/m³",
-        "C" = "°C",
-        cfg$unit
-      )
-      x_ticks <- seq(min(data$date), max(data$date), length.out = 5)
-
-      par(mar = c(2.2, 3.8, .7, .7), bg = NA, fg = "#7890a0")
-      plot(
-        data$date, data$value,
-        type = "n", ylim = cfg$range, axes = FALSE,
-        xlab = "", ylab = "", xaxs = "i", yaxs = "i"
-      )
-      abline(h = y_ticks, col = "#7890a022", lwd = .7)
-      abline(v = x_ticks, col = "#7890a014", lwd = .7)
-      for (reference in references) {
-        if (reference$value < cfg$range[[1]] || reference$value > cfg$range[[2]]) next
-        abline(h = reference$value, col = reference$color, lwd = 1.15, lty = 2)
-        label_x <- par("usr")[[2]] - diff(par("usr")[1:2]) * .012
-        text(
-          label_x, reference$value, reference$label,
-          adj = c(1, -.25), col = reference$color,
-          cex = .56, font = 2, xpd = FALSE
-        )
-      }
-      lines(data$date, data$value, col = "#35d4b4", lwd = 2.2)
-      abline(v = target, col = "#f8fafc66", lty = 3)
-      points(target, selected_y, pch = 21, bg = "#35d4b4", col = "white", cex = 1.1)
-      time_format <- if (language == "en") "%m/%d\n%Hh" else "%d/%m\n%Hh"
-      axis.POSIXct(1, at = x_ticks, format = time_format, col = NA, col.axis = "#7890a0", cex.axis = .62, padj = .2)
-      axis(2, at = y_ticks, labels = y_labels, las = 1, col = NA, col.axis = "#7890a0", cex.axis = .62, mgp = c(0, .45, 0))
-      mtext(unit_label, side = 2, line = 2.65, col = "#7890a0", cex = .58)
+      draw_forecast_plot(data, cfg, references, language, timezone, target, large = FALSE)
     }, bg = "transparent", res = 110)
+
+    output$forecast_detail_plot <- renderPlot({
+      data <- series()
+      language <- current_language()
+      validate(need(nrow(data), tr(language, "series_unavailable")))
+      cfg <- selected_config()
+      id <- input$indicator
+      timezone <- current_timezone()
+      references <- Map(
+        function(reference, index) localized_reference(language, id, reference, index),
+        cfg$references %||% list(), seq_along(cfg$references %||% list())
+      )
+      target <- forecast_origin() + selected_horizon() * 3600
+      draw_forecast_plot(data, cfg, references, language, timezone, target, large = TRUE)
+    }, bg = "#091720", res = 130)
+
+    output$download_forecast_plot <- downloadHandler(
+      filename = function() {
+        sprintf("alertar_grafico_%s_%s.png", input$indicator, input$territory)
+      },
+      content = function(file) {
+        data <- series()
+        req(nrow(data))
+        language <- current_language()
+        cfg <- selected_config()
+        id <- input$indicator
+        timezone <- current_timezone()
+        references <- Map(
+          function(reference, index) localized_reference(language, id, reference, index),
+          cfg$references %||% list(), seq_along(cfg$references %||% list())
+        )
+        target <- forecast_origin() + selected_horizon() * 3600
+        grDevices::png(file, width = 1800, height = 1000, res = 180, bg = "#091720")
+        on.exit(grDevices::dev.off(), add = TRUE)
+        draw_forecast_plot(data, cfg, references, language, timezone, target, large = TRUE)
+      },
+      contentType = "image/png"
+    )
 
     output$forecast_references <- renderUI({
       language <- current_language()
@@ -500,6 +645,8 @@ app_server <- function(store) {
           language = map_language_code(language),
           title = tr(language, "app_title"),
           territoryPlaceholder = tr(language, "territory_placeholder"),
+          timezoneLabel = tr(language, "timezone_label"),
+          chartLabel = tr(language, "chart_expand"),
           detailsToggle = list(
             minimize = tr(language, "minimize_panel"),
             restore = tr(language, "restore_panel")
@@ -508,14 +655,9 @@ app_server <- function(store) {
             list(
               tr(language, "history"), tr(language, "about"),
               tr(language, "layer_heading"), tr(language, "local_heading"),
-              tr(language, "download_series"), tr(language, "now"),
-              paste0(
-                "CAMS / Copernicus  •  ",
-                tr(language, paste0("coverage_", store$coverage$id), default = store$coverage$label),
-                "  •  LIS / ICICT / Fiocruz"
-              )
+              tr(language, "download_series"), tr(language, "now"), tr(language, "forecast_horizon")
             ),
-            c("label-history", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-now", "label-credits")
+            c("label-history", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-now", "label-forecast-horizon")
           ),
           mapControls = stats::setNames(
             list(
@@ -567,12 +709,22 @@ app_server <- function(store) {
       updateSliderInput(session, "horizon", value = next_horizon[[1]])
     })
 
-    observeEvent(input$toggle_details, {
-      session$sendCustomMessage("alertar:toggle-details", list())
-    }, ignoreInit = TRUE)
-
     observeEvent(input$open_history, {
       showModal(historical_data_modal(current_language()))
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$forecast_spark_click, {
+      req(input$indicator, input$territory)
+      language <- current_language()
+      territory <- territories[territories$territory_id == input$territory, , drop = FALSE]
+      req(nrow(territory) == 1L)
+      title <- paste(
+        tr(language, "chart_title"),
+        indicator_text(language, input$indicator, "short", catalog[[input$indicator]]$short),
+        territory$display_name[[1]],
+        sep = " · "
+      )
+      showModal(forecast_chart_modal(language, title))
     }, ignoreInit = TRUE)
 
     observeEvent(input$open_about, {

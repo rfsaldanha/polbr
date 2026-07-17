@@ -122,10 +122,10 @@
     }
 
     function color(speed) {
-      if (speed < 2) return "rgba(86,165,190,.42)";
-      if (speed < 5) return "rgba(83,217,199,.58)";
-      if (speed < 9) return "rgba(190,239,121,.72)";
-      return "rgba(255,226,112,.82)";
+      if (speed < 2) return "rgba(86,165,190,.50)";
+      if (speed < 5) return "rgba(83,217,199,.66)";
+      if (speed < 9) return "rgba(190,239,121,.80)";
+      return "rgba(255,226,112,.90)";
     }
 
     function draw() {
@@ -135,7 +135,7 @@
       ctx.fillStyle = "rgba(0,0,0,.91)";
       ctx.fillRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
-      ctx.lineWidth = .8;
+      ctx.lineWidth = .95;
 
       for (let i = 0; i < state.particles.length; i++) {
         let p = state.particles[i];
@@ -309,6 +309,18 @@
       territory.selectize.updatePlaceholder();
     }
 
+    const timezone = document.getElementById("timezone");
+    if (timezone && message.timezoneLabel) {
+      timezone.title = message.timezoneLabel;
+      timezone.setAttribute("aria-label", message.timezoneLabel);
+    }
+
+    const forecastChart = document.getElementById("forecast_spark");
+    if (forecastChart && message.chartLabel) {
+      forecastChart.title = message.chartLabel;
+      forecastChart.setAttribute("aria-label", message.chartLabel);
+    }
+
     const detailsButton = document.getElementById("toggle_details");
     if (detailsButton && message.detailsToggle) {
       detailsButton.dataset.minimizeLabel = message.detailsToggle.minimize;
@@ -318,6 +330,7 @@
       detailsButton.title = label;
       detailsButton.setAttribute("aria-label", label);
     }
+
   }
 
   function toggleDetailsPanel() {
@@ -338,13 +351,33 @@
     button.setAttribute("aria-label", label);
   }
 
+  function bindDetailsToggle() {
+    const button = document.getElementById("toggle_details");
+    if (!button || button.dataset.toggleBound === "true") return;
+    button.dataset.toggleBound = "true";
+    button.addEventListener("click", toggleDetailsPanel);
+    if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 520px), (max-height: 620px)").matches) {
+      const body = document.getElementById("place-panel-body");
+      if (body && !body.hidden) toggleDetailsPanel();
+    }
+  }
+
+  function bindLocalControls() {
+    bindDetailsToggle();
+  }
+
   function registerHandlers() {
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);
     Shiny.addCustomMessageHandler("alertar:interface", updateInterface);
-    Shiny.addCustomMessageHandler("alertar:toggle-details", toggleDetailsPanel);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindLocalControls, {once: true});
+  } else {
+    bindLocalControls();
   }
 
   if (window.Shiny) {

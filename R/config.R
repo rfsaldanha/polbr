@@ -172,6 +172,50 @@ resolve_data_dir <- function() {
   normalizePath(found[[1]], mustWork = TRUE)
 }
 
+timezone_catalog <- function() {
+  data.frame(
+    timezone = c(
+      "America/Sao_Paulo", "UTC",
+      "America/Manaus", "America/Rio_Branco", "America/Noronha",
+      "America/Mexico_City", "America/Guatemala", "America/Bogota",
+      "America/Lima", "America/Caracas", "America/La_Paz",
+      "America/Santiago", "America/Argentina/Buenos_Aires",
+      "America/Montevideo", "America/Puerto_Rico", "America/Havana"
+    ),
+    code = c(
+      "BRT", "UTC", "AMT", "ACT", "FNT", "MEX", "CAM", "COT",
+      "PET", "VET", "BOT", "CHL", "ART", "UYT", "AST", "CUB"
+    ),
+    label = c(
+      "BRT · Brasília", "UTC",
+      "AMT · Manaus", "ACT · Rio Branco", "FNT · Fernando de Noronha",
+      "MEX · Cidade do México", "CAM · Guatemala", "COT · Bogotá",
+      "PET · Lima", "VET · Caracas", "BOT · La Paz", "CHL · Santiago",
+      "ART · Buenos Aires", "UYT · Montevidéu", "AST · Caribe", "CUB · Havana"
+    ),
+    stringsAsFactors = FALSE
+  )
+}
+
+normalize_timezone <- function(timezone) {
+  timezone <- timezone %||% "America/Sao_Paulo"
+  available <- timezone_catalog()$timezone
+  if (timezone %in% available) timezone else "America/Sao_Paulo"
+}
+
+timezone_code <- function(timezone) {
+  timezone <- normalize_timezone(timezone)
+  catalog <- timezone_catalog()
+  catalog$code[[match(timezone, catalog$timezone)]]
+}
+
+in_timezone <- function(time, timezone) {
+  as.POSIXct(
+    as.numeric(time), origin = "1970-01-01",
+    tz = normalize_timezone(timezone)
+  )
+}
+
 pretty_unit <- function(unit) {
   switch(
     unit,
