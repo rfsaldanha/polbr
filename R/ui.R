@@ -120,6 +120,8 @@ app_ui <- function(store) {
   bslib::page_fillable(
     title = tr("pt", "app_title"),
     theme = bslib::bs_theme(version = 5, bg = "#071018", fg = "#edf7ff", primary = "#35d4b4"),
+    padding = 0,
+    gap = 0,
     fillable_mobile = TRUE,
     tags$head(
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1, viewport-fit=cover"),
@@ -181,6 +183,12 @@ app_ui <- function(store) {
               )
             })
           )
+        ),
+        tags$button(
+          id = "toggle_totem", type = "button", class = "utility-button totem-button",
+          title = tr("pt", "totem_mode"), `aria-label` = tr("pt", "totem_mode"),
+          `aria-pressed` = "false",
+          icon("expand"), span(id = "label-totem", tr("pt", "totem_mode"))
         ),
         actionButton(
           "open_history",

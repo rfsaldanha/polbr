@@ -4,6 +4,8 @@
   const overlays = new Map();
   const rasterPreloads = new Map();
   const jsonPreloads = new Map();
+  let totemActive = false;
+  let fullscreenEventsBound = false;
 
   function remember(cache, key, promise, limit) {
     cache.set(key, promise);
@@ -321,6 +323,13 @@
       forecastChart.setAttribute("aria-label", message.chartLabel);
     }
 
+    const totemButton = document.getElementById("toggle_totem");
+    if (totemButton && message.totemToggle) {
+      totemButton.dataset.enterLabel = message.totemToggle.enter;
+      totemButton.dataset.exitLabel = message.totemToggle.exit;
+      updateTotemButton();
+    }
+
     const detailsButton = document.getElementById("toggle_details");
     if (detailsButton && message.detailsToggle) {
       detailsButton.dataset.minimizeLabel = message.detailsToggle.minimize;
@@ -331,6 +340,23 @@
       detailsButton.setAttribute("aria-label", label);
     }
 
+  }
+
+  function updateTerritorySelection(message) {
+    const input = document.getElementById(message.inputId || "territory");
+    if (!input || !input.selectize || message.value == null) return;
+
+    const selectize = input.selectize;
+    const value = String(message.value);
+    const valueField = selectize.settings.valueField || "value";
+    const labelField = selectize.settings.labelField || "label";
+    if (!selectize.options[value]) {
+      const option = {};
+      option[valueField] = value;
+      option[labelField] = message.label || value;
+      selectize.addOption(option);
+    }
+    selectize.setValue(value);
   }
 
   function toggleDetailsPanel() {
@@ -362,8 +388,190 @@
     }
   }
 
+  function minimizeMapAttribution(root) {
+    const attribution = root.querySelector(".maplibregl-ctrl-attrib");
+    if (!attribution || attribution.dataset.initialCompact === "true") return;
+    attribution.classList.add("maplibregl-compact");
+    attribution.classList.remove("maplibregl-compact-show");
+    attribution.removeAttribute("open");
+    attribution.dataset.initialCompact = "true";
+  }
+
+  function bindMapAttribution() {
+    const mapRoot = document.getElementById("forecast_map");
+    if (!mapRoot || mapRoot.dataset.attributionObserverBound === "true") return;
+    mapRoot.dataset.attributionObserverBound = "true";
+    minimizeMapAttribution(mapRoot);
+    new MutationObserver(() => minimizeMapAttribution(mapRoot)).observe(mapRoot, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  function seededRandom(seed) {
+    let value = seed >>> 0;
+    return function () {
+      value += 0x6D2B79F5;
+      let result = value;
+      result = Math.imul(result ^ (result >>> 15), result | 1);
+      result ^= result + Math.imul(result ^ (result >>> 7), result | 61);
+      return ((result ^ (result >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function drawStarField(canvas, root) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, root.clientWidth);
+    const height = Math.max(1, root.clientHeight);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    const random = seededRandom(0xA17EA5);
+    const count = Math.max(180, Math.min(620, Math.round(width * height / 4200)));
+
+    for (let index = 0; index < count; index++) {
+      const x = random() * width;
+      const y = random() * height;
+      const bright = random() > .94;
+      const radius = bright ? .85 + random() * 1.15 : .25 + random() * .62;
+      const alpha = bright ? .55 + random() * .32 : .18 + random() * .46;
+
+      if (bright) {
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 4.5);
+        glow.addColorStop(0, `rgba(205, 234, 255, ${alpha})`);
+        glow.addColorStop(.18, `rgba(152, 211, 239, ${alpha * .55})`);
+        glow.addColorStop(1, "rgba(91, 165, 203, 0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y, radius * 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = `rgba(216, 237, 248, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  async function bindStarField() {
+    const root = document.getElementById("forecast_map");
+    if (!root || root.dataset.starFieldBound === "true") return;
+    root.dataset.starFieldBound = "true";
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "star-field";
+    canvas.setAttribute("aria-hidden", "true");
+    root.prepend(canvas);
+    drawStarField(canvas, root);
+    new ResizeObserver(() => drawStarField(canvas, root)).observe(root);
+
+    let attempts = 0;
+    while (!root.map && attempts++ < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!root.map || typeof root.map.setSky !== "function") return;
+
+    const applySpace = () => {
+      try {
+        root.map.setSky({
+          "sky-color": "rgba(2, 6, 10, 0.08)",
+          "horizon-color": "rgba(17, 42, 53, 0.74)",
+          "fog-color": "rgba(18, 36, 45, 0.54)",
+          "sky-horizon-blend": .42,
+          "horizon-fog-blend": .7,
+          "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, .72, 6, .4, 10, 0]
+        });
+      } catch (error) {
+        console.debug("Não foi possível configurar o céu do globo.", error);
+      }
+    };
+    applySpace();
+    root.map.on("style.load", applySpace);
+  }
+
+  function fullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function updateTotemButton() {
+    const button = document.getElementById("toggle_totem");
+    if (!button) return;
+    const label = totemActive
+      ? (button.dataset.exitLabel || "Sair do modo totem")
+      : (button.dataset.enterLabel || "Modo totem");
+    button.classList.toggle("is-active", totemActive);
+    button.setAttribute("aria-pressed", String(totemActive));
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    const text = document.getElementById("label-totem");
+    if (text) text.textContent = label;
+  }
+
+  function notifyTotemState() {
+    if (!window.Shiny || typeof Shiny.setInputValue !== "function") return;
+    Shiny.setInputValue("totem_mode", totemActive, {priority: "event"});
+  }
+
+  async function requestAppFullscreen() {
+    const target = document.querySelector(".app-shell");
+    if (!target || fullscreenElement()) return;
+    const request = target.requestFullscreen || target.webkitRequestFullscreen;
+    if (!request) return;
+    try {
+      await request.call(target);
+    } catch (error) {
+      console.warn("Tela cheia indisponível; mantendo o modo totem na janela.", error);
+    }
+  }
+
+  async function exitAppFullscreen() {
+    if (!fullscreenElement()) return;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (!exit) return;
+    try {
+      await exit.call(document);
+    } catch (error) {
+      console.warn("Não foi possível sair da tela cheia.", error);
+    }
+  }
+
+  function setTotemMode(active, manageFullscreen = true, notify = true) {
+    totemActive = Boolean(active);
+    document.body.classList.toggle("totem-mode", totemActive);
+    updateTotemButton();
+    if (manageFullscreen) {
+      if (totemActive) requestAppFullscreen();
+      else exitAppFullscreen();
+    }
+    if (notify) notifyTotemState();
+  }
+
+  function bindTotemToggle() {
+    const button = document.getElementById("toggle_totem");
+    if (!button || button.dataset.toggleBound === "true") return;
+    button.dataset.toggleBound = "true";
+    button.addEventListener("click", () => setTotemMode(!totemActive));
+    if (!fullscreenEventsBound) {
+      fullscreenEventsBound = true;
+      const handleFullscreenChange = () => {
+        if (totemActive && !fullscreenElement()) setTotemMode(false, false, true);
+      };
+      document.addEventListener("fullscreenchange", handleFullscreenChange);
+      document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    }
+  }
+
   function bindLocalControls() {
     bindDetailsToggle();
+    bindMapAttribution();
+    bindStarField();
+    bindTotemToggle();
   }
 
   function registerHandlers() {
@@ -372,6 +580,7 @@
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);
     Shiny.addCustomMessageHandler("alertar:interface", updateInterface);
+    Shiny.addCustomMessageHandler("alertar:territory-selection", updateTerritorySelection);
   }
 
   if (document.readyState === "loading") {

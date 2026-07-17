@@ -1,18 +1,27 @@
 create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
-  rasters <- lapply(catalog, function(x) {
-    path <- file.path(data_dir, x$file)
-    if (file.exists(path)) terra::rast(path) else NULL
-  })
+  load_rasters <- function() {
+    lapply(catalog, function(x) {
+      path <- file.path(data_dir, x$file)
+      if (file.exists(path)) terra::rast(path) else NULL
+    })
+  }
+  build_raster_horizons <- function(values) {
+    result <- lapply(names(catalog), function(id) {
+      x <- values[[id]]
+      if (is.null(x)) return(numeric())
+      seq.int(0, by = catalog[[id]]$interval, length.out = terra::nlyr(x))
+    })
+    names(result) <- names(catalog)
+    result
+  }
+
+  rasters <- load_rasters()
   available <- names(rasters)[!vapply(rasters, is.null, logical(1))]
   if (!length(available)) stop("Nenhum raster de previsao foi encontrado em ", data_dir)
   default_indicator <- if ("pm25" %in% available) "pm25" else available[[1]]
+  revision <- shiny::reactiveVal(0L)
 
-  raster_horizons <- lapply(names(catalog), function(id) {
-    x <- rasters[[id]]
-    if (is.null(x)) return(numeric())
-    seq.int(0, by = catalog[[id]]$interval, length.out = terra::nlyr(x))
-  })
-  names(raster_horizons) <- names(catalog)
+  raster_horizons <- build_raster_horizons(rasters)
 
   normalize_horizon <- function(id, horizon) {
     values <- raster_horizons[[id]]
@@ -46,8 +55,12 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   if (!file.exists(fire_path)) fire_path <- file.path("data", "bdq_focos.rds")
   fires <- if (file.exists(fire_path)) readRDS(fire_path) else NULL
 
-  db_path <- file.path(data_dir, "cams_forecast.duckdb")
-  if (!file.exists(db_path)) db_path <- file.path("data", "cams_forecast.duckdb")
+  resolve_db_path <- function() {
+    candidates <- c(file.path(data_dir, "cams_forecast.duckdb"), file.path("data", "cams_forecast.duckdb"))
+    existing <- candidates[file.exists(candidates)]
+    if (length(existing)) existing[[1]] else candidates[[1]]
+  }
+  db_path <- resolve_db_path()
   con <- if (file.exists(db_path)) {
     DBI::dbConnect(duckdb::duckdb(), db_path, read_only = TRUE)
   } else NULL
@@ -200,6 +213,53 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   wind_available <- any(file.exists(file.path(data_dir, paste0("wind_", c(1, 121), ".json"))))
   if (wind_available) shiny::addResourcePath("wind-data", data_dir)
 
+  wind_url <- function(horizon) {
+    filename <- sprintf("wind_%d.json", horizon + 1L)
+    path <- file.path(data_dir, filename)
+    version <- if (file.exists(path)) as.integer(file.info(path)$mtime) else 0L
+    sprintf("wind-data/%s?v=%s", filename, version)
+  }
+
+  refresh <- function() {
+    new_rasters <- tryCatch(load_rasters(), error = function(error) {
+      warning("Falha ao recarregar rasters: ", conditionMessage(error))
+      NULL
+    })
+    if (is.null(new_rasters)) return(FALSE)
+    new_available <- names(new_rasters)[!vapply(new_rasters, is.null, logical(1))]
+    if (!length(new_available)) return(FALSE)
+
+    new_db_path <- resolve_db_path()
+    new_con <- if (file.exists(new_db_path)) {
+      tryCatch(
+        DBI::dbConnect(duckdb::duckdb(), new_db_path, read_only = TRUE),
+        error = function(error) {
+          warning("Falha ao reabrir banco de previsao: ", conditionMessage(error))
+          NULL
+        }
+      )
+    } else NULL
+    if (file.exists(new_db_path) && is.null(new_con)) return(FALSE)
+    new_tables <- if (is.null(new_con)) character() else DBI::dbListTables(new_con)
+
+    old_con <- con
+    rasters <<- new_rasters
+    raster_horizons <<- build_raster_horizons(new_rasters)
+    available <<- new_available
+    db_path <<- new_db_path
+    con <<- new_con
+    tables <<- new_tables
+    image_cache$reset()
+    query_cache$reset()
+    unlink(list.files(image_dir, full.names = TRUE), recursive = TRUE, force = TRUE)
+    revision(shiny::isolate(revision()) + 1L)
+
+    if (!is.null(old_con) && DBI::dbIsValid(old_con)) {
+      DBI::dbDisconnect(old_con, shutdown = TRUE)
+    }
+    TRUE
+  }
+
   list(
     data_dir = data_dir,
     catalog = catalog,
@@ -215,9 +275,11 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     future_horizons = future_horizons,
     query_series = query_series,
     analysis_time = analysis_time,
+    revision = revision,
+    refresh = refresh,
     territory_geometry = territory_geometry,
     wind_available = wind_available,
-    wind_url = function(horizon) sprintf("wind-data/wind_%d.json", horizon + 1L),
+    wind_url = wind_url,
     close = function() {
       if (!is.null(con) && DBI::dbIsValid(con)) DBI::dbDisconnect(con, shutdown = TRUE)
       unlink(image_dir, recursive = TRUE, force = TRUE)

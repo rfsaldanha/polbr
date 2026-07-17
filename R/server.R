@@ -148,6 +148,20 @@ app_server <- function(store) {
     territories <- store$territories
     current_language <- reactive(normalize_language(input$language))
     current_timezone <- reactive(normalize_timezone(input$timezone))
+    data_revision <- reactive(store$revision())
+    totem_active <- reactiveVal(FALSE)
+    playing_before_totem <- reactiveVal(FALSE)
+    totem_last_refresh <- reactiveVal(Sys.time())
+    totem_refresh_hours <- suppressWarnings(as.numeric(
+      Sys.getenv("ALERTAR_TOTEM_REFRESH_HOURS", unset = "3")
+    ))
+    if (!is.finite(totem_refresh_hours) || totem_refresh_hours <= 0) totem_refresh_hours <- 3
+
+    municipality_types <- tolower(as.character(territories$territory_type))
+    municipality_ids <- unique(as.character(territories$territory_id[
+      municipality_types %in% c("municipio", "município", "municipality", "commune")
+    ]))
+    municipality_ids <- municipality_ids[!is.na(municipality_ids) & nzchar(municipality_ids)]
     localized_indicator_choices <- function(language) {
       stats::setNames(
         store$available,
@@ -187,16 +201,8 @@ app_server <- function(store) {
       map <- mapgl::maplibre(
         style = mapgl::carto_style("dark-matter"),
         center = store$coverage$center, zoom = store$coverage$zoom, projection = "globe",
-        attribution_control = FALSE
+        attributionControl = list(compact = TRUE)
       ) |>
-        mapgl::set_fog(
-          range = c(.6, 8),
-          color = "#12242d",
-          high_color = "#071018",
-          space_color = "#02060a",
-          horizon_blend = .16,
-          star_intensity = .18
-        ) |>
         mapgl::add_globe_control(position = "top-right") |>
         mapgl::add_navigation_control(position = "top-right", visualize_pitch = TRUE) |>
         mapgl::add_scale_control(position = "bottom-right", unit = "metric") |>
@@ -258,12 +264,12 @@ app_server <- function(store) {
 
     layer_request <- reactive({
       req(input$indicator, input$horizon)
-      list(id = input$indicator, horizon = selected_horizon())
+      list(id = input$indicator, horizon = selected_horizon(), revision = data_revision())
     }) |> debounce(100)
 
-    update_raster <- function(id, horizon) {
+    update_raster <- function(id, horizon, revision = data_revision()) {
       image <- store$raster_image(id, horizon)
-      token <- paste(id, horizon, sep = "-")
+      token <- paste(id, horizon, revision, sep = "-")
       session$sendCustomMessage(
         "alertar:raster",
         list(
@@ -311,7 +317,7 @@ app_server <- function(store) {
     observeEvent(layer_request(), {
       req(map_ready())
       request <- layer_request()
-      update_raster(request$id, request$horizon)
+      update_raster(request$id, request$horizon, request$revision)
       schedule_raster_preload(request$id, request$horizon)
       session$sendCustomMessage(
         "alertar:wind",
@@ -376,6 +382,19 @@ app_server <- function(store) {
             line_color = "#f8fafc", line_width = 2.5, line_opacity = .95
           )
       }
+      if (isTRUE(isolate(totem_active()))) {
+        focus <- suppressWarnings(sf::st_point_on_surface(sf::st_union(sf::st_geometry(territory))))
+        coordinates <- sf::st_coordinates(focus)
+        if (nrow(coordinates)) {
+          mapgl::fly_to(
+            proxy,
+            center = unname(coordinates[1, c("X", "Y")]),
+            zoom = 5.2,
+            duration = 2200,
+            essential = TRUE
+          )
+        }
+      }
     }
 
     observeEvent(input$territory, update_selected_territory(), ignoreInit = TRUE)
@@ -426,11 +445,14 @@ app_server <- function(store) {
 
     series <- reactive({
       req(input$indicator, input$territory)
+      data_revision()
       store$query_series(input$indicator, input$territory)
-    }) |> bindCache(input$indicator, input$territory)
+    }) |> bindCache(input$indicator, input$territory, data_revision())
 
-    forecast_origin <- reactive(store$analysis_time(input$indicator)) |>
-      bindCache(input$indicator)
+    forecast_origin <- reactive({
+      data_revision()
+      store$analysis_time(input$indicator)
+    }) |> bindCache(input$indicator, data_revision())
 
     selected_value <- reactive({
       data <- series()
@@ -608,6 +630,9 @@ app_server <- function(store) {
 
     playing <- reactiveVal(FALSE)
     frame_pending <- reactiveVal(FALSE)
+    totem_cycle_waiting <- reactiveVal(FALSE)
+    totem_cycle_generation <- reactiveVal(0L)
+    animation_duration_ms <- 30 * 1000
 
     update_play_button <- function() {
       language <- isolate(current_language())
@@ -618,6 +643,54 @@ app_server <- function(store) {
         label = if (is_playing) tr(language, "pause") else tr(language, "animate"),
         icon = icon(if (is_playing) "pause" else "play")
       )
+    }
+
+    select_random_municipality <- function() {
+      if (!length(municipality_ids)) return(invisible(NULL))
+      current <- as.character(isolate(input$territory %||% ""))
+      candidates <- setdiff(municipality_ids, current)
+      if (!length(candidates)) candidates <- municipality_ids
+      selected <- sample(candidates, 1L)
+      selected_index <- match(selected, as.character(territories$territory_id))
+      selected_label <- if (is.na(selected_index)) selected else territories$display_name[[selected_index]]
+      session$sendCustomMessage(
+        "alertar:territory-selection",
+        list(
+          inputId = session$ns("territory"),
+          value = selected,
+          label = selected_label
+        )
+      )
+      invisible(selected)
+    }
+
+    cancel_totem_cycle <- function() {
+      totem_cycle_generation(isolate(totem_cycle_generation()) + 1L)
+      totem_cycle_waiting(FALSE)
+    }
+
+    schedule_totem_cycle <- function() {
+      if (!isTRUE(isolate(totem_active())) || isTRUE(isolate(totem_cycle_waiting()))) {
+        return(invisible(FALSE))
+      }
+      generation <- isolate(totem_cycle_generation()) + 1L
+      totem_cycle_generation(generation)
+      totem_cycle_waiting(TRUE)
+
+      later::later(function() {
+        if (!isTRUE(isolate(totem_active()))) return()
+        if (!identical(isolate(totem_cycle_generation()), generation)) return()
+
+        select_random_municipality()
+        id <- isolate(input$indicator %||% store$default_indicator)
+        horizons <- store$forecast_horizons(id)
+        totem_cycle_waiting(FALSE)
+        frame_pending(FALSE)
+        if (length(horizons)) {
+          updateSliderInput(session, "horizon", value = min(horizons))
+        }
+      }, delay = 5)
+      invisible(TRUE)
     }
 
     observeEvent(input$language, {
@@ -647,6 +720,10 @@ app_server <- function(store) {
           territoryPlaceholder = tr(language, "territory_placeholder"),
           timezoneLabel = tr(language, "timezone_label"),
           chartLabel = tr(language, "chart_expand"),
+          totemToggle = list(
+            enter = tr(language, "totem_mode"),
+            exit = tr(language, "exit_totem")
+          ),
           detailsToggle = list(
             minimize = tr(language, "minimize_panel"),
             restore = tr(language, "restore_panel")
@@ -677,7 +754,38 @@ app_server <- function(store) {
       }
     }, ignoreInit = FALSE)
 
+    observeEvent(input$totem_mode, {
+      active <- isTRUE(input$totem_mode)
+      was_active <- isTRUE(isolate(totem_active()))
+      if (identical(active, was_active)) return()
+
+      if (active) {
+        playing_before_totem(isolate(playing()))
+        totem_active(TRUE)
+        totem_last_refresh(Sys.time())
+        cancel_totem_cycle()
+        playing(TRUE)
+        update_play_button()
+        id <- isolate(input$indicator %||% store$default_indicator)
+        horizons <- store$forecast_horizons(id)
+        if (length(horizons)) {
+          frame_pending(FALSE)
+          updateSliderInput(session, "horizon", value = min(horizons))
+        }
+      } else {
+        cancel_totem_cycle()
+        totem_active(FALSE)
+        playing(isTRUE(isolate(playing_before_totem())))
+        update_play_button()
+      }
+    }, ignoreInit = TRUE)
+
     observeEvent(input$play, {
+      if (isTRUE(isolate(totem_active()))) {
+        playing(TRUE)
+        update_play_button()
+        return()
+      }
       playing(!playing())
       update_play_button()
     })
@@ -686,27 +794,71 @@ app_server <- function(store) {
       result <- input$forecast_map_raster_ready
       frame_pending(FALSE)
       if (identical(result$ok, FALSE)) {
-        playing(FALSE)
+        if (!isTRUE(isolate(totem_active()))) playing(FALSE)
         update_play_button()
         showNotification(tr(current_language(), "raster_error"), type = "error")
+      } else if (isTRUE(isolate(totem_active()))) {
+        id <- isolate(input$indicator %||% store$default_indicator)
+        horizons <- store$forecast_horizons(id)
+        current_horizon <- store$normalize_horizon(id, isolate(input$horizon))
+        if (length(horizons) && identical(current_horizon, max(horizons))) {
+          schedule_totem_cycle()
+        }
       }
     })
 
-    timer <- reactiveTimer(2000, session)
     observe({
-      timer()
+      id <- isolate(input$indicator %||% store$default_indicator)
+      horizons <- store$forecast_horizons(id)
+      frame_interval <- animation_duration_ms / max(1L, length(horizons) - 1L)
+      invalidateLater(max(100, round(frame_interval)), session)
       if (!isolate(playing())) return()
       if (isolate(frame_pending())) return()
-      id <- isolate(input$indicator)
       current_horizon <- store$normalize_horizon(id, isolate(input$horizon))
       next_horizon <- store$future_horizons(id, current_horizon, 1L)
       if (!length(next_horizon)) {
-        playing(FALSE)
-        update_play_button()
-        return()
+        if (isTRUE(isolate(totem_active()))) {
+          schedule_totem_cycle()
+          return()
+        } else {
+          playing(FALSE)
+          update_play_button()
+          return()
+        }
       }
       frame_pending(TRUE)
       updateSliderInput(session, "horizon", value = next_horizon[[1]])
+    })
+
+    refresh_timer <- reactiveTimer(60 * 1000, session)
+    observe({
+      refresh_timer()
+      if (!isTRUE(isolate(totem_active()))) return()
+
+      now <- Sys.time()
+      hours_since_refresh <- as.numeric(difftime(
+        now, isolate(totem_last_refresh()), units = "hours"
+      ))
+      if (!is.finite(hours_since_refresh) || hours_since_refresh < totem_refresh_hours) return()
+
+      refreshed <- tryCatch(store$refresh(), error = function(error) {
+        warning("Falha na atualização do modo totem: ", conditionMessage(error))
+        FALSE
+      })
+      if (!isTRUE(refreshed)) return()
+
+      totem_last_refresh(now)
+      frame_pending(FALSE)
+      id <- isolate(input$indicator %||% store$default_indicator)
+      horizons <- store$forecast_horizons(id)
+      if (length(horizons)) {
+        current <- store$normalize_horizon(id, isolate(input$horizon %||% min(horizons)))
+        updateSliderInput(
+          session, "horizon",
+          min = min(horizons), max = max(horizons),
+          step = catalog[[id]]$interval, value = current
+        )
+      }
     })
 
     observeEvent(input$open_history, {

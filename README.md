@@ -23,6 +23,8 @@ maior eixo antes da aplicacao da paleta, mantendo a grade cientifica original e
 melhorando a definicao no navegador. Para ajustar esse limite, use, por exemplo,
 `ALERTAR_RASTER_SIZE=1536`; valores entre 256 e 2048 sao aceitos.
 
+No modo totem, os dados são reabertos automaticamente a cada três horas. O intervalo pode ser ajustado, em horas, com `ALERTAR_TOTEM_REFRESH_HOURS=3`.
+
 A cobertura geografica e configuravel sem alterar o codigo. O modo `brazil` e o padrao atual; `lac` prepara enquadramento e rotulos para America Latina e Caribe.
 
 ```sh
