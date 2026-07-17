@@ -81,7 +81,7 @@ app_server <- function(store) {
             id = "fires", source = fires, circle_radius = 3.5,
             circle_color = "#ff6b35", circle_opacity = .88,
             circle_stroke_color = "#fff1d6", circle_stroke_width = .7,
-            visibility = "none", tooltip = "data_hora_gmt"
+            visibility = "none"
           )
       }
       map

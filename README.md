@@ -18,6 +18,11 @@ Por padrao, a aplicacao procura os dados em `POLBR_DATA_DIR`, no diretorio de pr
 POLBR_DATA_DIR=/caminho/forecast_data Rscript -e 'shiny::runApp()'
 ```
 
+Os quadros do mapa sao reamostrados em memoria para cerca de 1024 pixels no
+maior eixo antes da aplicacao da paleta, mantendo a grade cientifica original e
+melhorando a definicao no navegador. Para ajustar esse limite, use, por exemplo,
+`ALERTAR_RASTER_SIZE=1536`; valores entre 256 e 2048 sao aceitos.
+
 A cobertura geografica e configuravel sem alterar o codigo. O modo `brazil` e o padrao atual; `lac` prepara enquadramento e rotulos para America Latina e Caribe.
 
 ```sh

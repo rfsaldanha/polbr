@@ -242,7 +242,11 @@
           id: "forecast",
           type: "raster",
           source: "forecast",
-          paint: {"raster-opacity": .82, "raster-fade-duration": 0}
+          paint: {
+            "raster-opacity": .82,
+            "raster-fade-duration": 0,
+            "raster-resampling": "linear"
+          }
         });
       }
       map.triggerRepaint();

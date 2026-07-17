@@ -58,15 +58,34 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   dir.create(image_dir, recursive = TRUE)
   shiny::addResourcePath("forecast-images", image_dir)
 
+  raster_target_size <- suppressWarnings(as.integer(
+    Sys.getenv("ALERTAR_RASTER_SIZE", unset = "1024")
+  ))
+  if (!is.finite(raster_target_size) || raster_target_size < 256L) {
+    raster_target_size <- 1024L
+  }
+  raster_target_size <- min(raster_target_size, 2048L)
+
+  render_raster <- function(layer) {
+    longest_side <- max(terra::ncol(layer), terra::nrow(layer))
+    factor <- min(8L, max(1L, ceiling(raster_target_size / longest_side)))
+    if (factor > 1L) {
+      layer <- terra::disagg(layer, fact = factor, method = "bilinear")
+    }
+    list(layer = layer, factor = factor)
+  }
+
   raster_image <- function(id, horizon) {
     cfg <- catalog[[id]]
     x <- rasters[[id]]
     actual_horizon <- normalize_horizon(id, horizon)
     index <- match(actual_horizon, raster_horizons[[id]])
-    key <- paste0("image", id, "layer", index)
+    key <- paste0("image-v2-", raster_target_size, "-", id, "-layer-", index)
     if (image_cache$exists(key)) return(image_cache$get(key))
 
     layer <- x[[index]] * cfg$scale + cfg$offset
+    rendered <- render_raster(layer)
+    layer <- rendered$layer
     values <- terra::as.matrix(layer, wide = TRUE)
     alpha <- ifelse(is.finite(values), 0.82, 0)
 
@@ -105,7 +124,10 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
         unname(c(extent$xmin, extent$ymin))
       ),
       index = index,
-      horizon = actual_horizon
+      horizon = actual_horizon,
+      width = terra::ncol(layer),
+      height = terra::nrow(layer),
+      render_factor = rendered$factor
     )
     image_cache$set(key, result)
     result
