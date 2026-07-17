@@ -312,11 +312,13 @@ app_server <- function(store) {
     send_wind_update <- function(horizon) {
       if (!isTRUE(isolate(map_ready()))) return(invisible(FALSE))
       wind_horizon <- effective_wind_horizon(horizon)
+      show_wind <- isolate(input$show_wind)
+      wind_enabled <- if (is.null(show_wind)) store$wind_available else isTRUE(show_wind)
       session$sendCustomMessage(
         "alertar:wind",
         list(
           mapId = session$ns("forecast_map"),
-          active = isTRUE(isolate(input$show_wind)) && store$wind_available,
+          active = wind_enabled && store$wind_available,
           url = if (store$wind_available) store$wind_url(wind_horizon) else NULL
         )
       )
@@ -402,10 +404,14 @@ app_server <- function(store) {
       if (!isTRUE(isolate(playing()))) send_wind_update(request$horizon)
     }, ignoreInit = TRUE)
 
-    observeEvent(input$show_wind, {
-      req(map_ready())
-      send_wind_update(selected_horizon())
-    }, ignoreInit = TRUE)
+    observeEvent(
+      list(map_ready(), input$show_wind),
+      {
+        req(map_ready())
+        send_wind_update(isolate(selected_horizon()))
+      },
+      ignoreInit = FALSE, ignoreNULL = FALSE
+    )
 
     observeEvent(input$show_satellite, {
       req(map_ready())
@@ -486,6 +492,10 @@ app_server <- function(store) {
         )
       }
       send_wind_update(horizon)
+      later::later(function() {
+        if (session$isClosed() || !isTRUE(isolate(map_ready()))) return(invisible(NULL))
+        send_wind_update(isolate(selected_horizon()))
+      }, delay = 0.75)
       session$sendCustomMessage(
         "alertar:language",
         list(
