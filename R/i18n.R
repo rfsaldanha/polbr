@@ -20,7 +20,7 @@ translations <- list(
   pt = list(
     app_title = "AlertAr Saúde | Previsão atmosférica",
     layer_heading = "CAMADA ATMOSFÉRICA", local_heading = "PREVISÃO LOCAL",
-    wind_particles = "Partículas de vento", heat_spots = "Focos de calor",
+    wind_particles = "Partículas de vento", heat_spots = "Focos de calor (INPE/BDQueimadas)",
     satellite_image = "Imagem de satélite", territory_placeholder = "Buscar município, terra indígena, quilombo...",
     map_zoom_in = "Aproximar", map_zoom_out = "Afastar", map_reset_bearing = "Redefinir orientação", map_toggle_projection = "Alternar projeção",
     coverage_brazil = "Brasil", coverage_lac = "América Latina e Caribe",
@@ -77,7 +77,7 @@ translations <- list(
   es = list(
     app_title = "AlertAr Salud | Pronóstico atmosférico",
     layer_heading = "CAPA ATMOSFÉRICA", local_heading = "PRONÓSTICO LOCAL",
-    wind_particles = "Partículas de viento", heat_spots = "Focos de calor",
+    wind_particles = "Partículas de viento", heat_spots = "Focos de calor (INPE/BDQueimadas)",
     satellite_image = "Imagen satelital", territory_placeholder = "Buscar municipio, tierra indígena, quilombo...",
     map_zoom_in = "Acercar", map_zoom_out = "Alejar", map_reset_bearing = "Restablecer orientación", map_toggle_projection = "Cambiar proyección",
     coverage_brazil = "Brasil", coverage_lac = "América Latina y el Caribe",
@@ -125,7 +125,7 @@ translations <- list(
   fr = list(
     app_title = "AlertAr Santé | Prévisions atmosphériques",
     layer_heading = "COUCHE ATMOSPHÉRIQUE", local_heading = "PRÉVISION LOCALE",
-    wind_particles = "Particules de vent", heat_spots = "Foyers d’incendie", satellite_image = "Image satellite",
+    wind_particles = "Particules de vent", heat_spots = "Foyers d’incendie (INPE/BDQueimadas)", satellite_image = "Image satellite",
     territory_placeholder = "Rechercher une commune, une terre autochtone, un quilombo...",
     map_zoom_in = "Zoom avant", map_zoom_out = "Zoom arrière", map_reset_bearing = "Réinitialiser l’orientation", map_toggle_projection = "Changer de projection",
     coverage_brazil = "Brésil", coverage_lac = "Amérique latine et Caraïbes",
@@ -173,7 +173,7 @@ translations <- list(
   en = list(
     app_title = "AlertAr Health | Atmospheric forecast",
     layer_heading = "ATMOSPHERIC LAYER", local_heading = "LOCAL FORECAST",
-    wind_particles = "Wind particles", heat_spots = "Active fires", satellite_image = "Satellite imagery",
+    wind_particles = "Wind particles", heat_spots = "Active fires (INPE/BDQueimadas)", satellite_image = "Satellite imagery",
     territory_placeholder = "Search municipality, Indigenous land, quilombo...",
     map_zoom_in = "Zoom in", map_zoom_out = "Zoom out", map_reset_bearing = "Reset bearing", map_toggle_projection = "Toggle projection",
     coverage_brazil = "Brazil", coverage_lac = "Latin America and the Caribbean",

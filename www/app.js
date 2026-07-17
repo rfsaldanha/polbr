@@ -5,7 +5,6 @@
   const rasterPreloads = new Map();
   const jsonPreloads = new Map();
   const latestRasterTokens = new Map();
-  const windPerformanceModes = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
 
@@ -83,7 +82,6 @@
     const ctx = canvas.getContext("2d");
     const state = {
       el, map, canvas, ctx, grid: null, active: false, moving: false,
-      performanceMode: false, lastDrawAt: 0,
       frame: null, particles: [], token: 0
     };
     // Visual advection scale only; wind values and color classes stay unchanged.
@@ -138,10 +136,7 @@
     }
 
     function seed() {
-      const baseCount = Math.round((el.clientWidth * el.clientHeight) / 1150);
-      const count = state.performanceMode
-        ? Math.max(140, Math.min(650, Math.round(baseCount * .5)))
-        : Math.max(260, Math.min(1250, baseCount));
+      const count = Math.max(260, Math.min(1250, Math.round((el.clientWidth * el.clientHeight) / 1150)));
       state.particles = Array.from({length: count}, randomParticle);
       clear();
     }
@@ -160,18 +155,13 @@
       return 3;
     }
 
-    function draw(timestamp) {
+    function draw() {
       state.frame = null;
       const mapIsMoving = typeof map.isMoving === "function" && map.isMoving();
       if (!state.active || !state.grid || state.moving || mapIsMoving) {
         clear();
         return;
       }
-      if (state.performanceMode && timestamp - state.lastDrawAt < 1000 / 30) {
-        start();
-        return;
-      }
-      state.lastDrawAt = timestamp;
       const width = el.clientWidth, height = el.clientHeight;
       ctx.globalCompositeOperation = "destination-in";
       ctx.fillStyle = "rgba(0,0,0,.91)";
@@ -252,17 +242,6 @@
         start();
       }
     };
-    state.setPerformanceMode = function(reduced) {
-      const nextMode = Boolean(reduced);
-      if (state.performanceMode === nextMode) return;
-      state.performanceMode = nextMode;
-      state.lastDrawAt = 0;
-      if (state.active && state.grid) {
-        seed();
-        start();
-      }
-    };
-
     new ResizeObserver(resize).observe(el);
     map.on("movestart", () => {
       state.moving = true;
@@ -288,7 +267,6 @@
     let overlay = overlays.get(message.mapId);
     if (!overlay) {
       overlay = makeOverlay(el, el.map);
-      overlay.setPerformanceMode(Boolean(windPerformanceModes.get(message.mapId)));
       overlays.set(message.mapId, overlay);
     }
     const token = ++overlay.token;
@@ -301,13 +279,6 @@
       console.warn("Camada de vento indisponivel:", error);
       overlay.setActive(false);
     }
-  }
-
-  function updateWindPerformance(message) {
-    const reduced = Boolean(message.reduced);
-    windPerformanceModes.set(message.mapId, reduced);
-    const overlay = overlays.get(message.mapId);
-    if (overlay) overlay.setPerformanceMode(reduced);
   }
 
   async function updateRaster(message) {
@@ -693,7 +664,6 @@
 
   function registerHandlers() {
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
-    Shiny.addCustomMessageHandler("alertar:wind-performance", updateWindPerformance);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);

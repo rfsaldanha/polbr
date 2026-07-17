@@ -303,6 +303,26 @@ app_server <- function(store) {
       )
     }
 
+    animation_wind_horizon <- 60
+
+    effective_wind_horizon <- function(horizon) {
+      if (isTRUE(isolate(playing()))) animation_wind_horizon else horizon
+    }
+
+    send_wind_update <- function(horizon) {
+      if (!isTRUE(isolate(map_ready()))) return(invisible(FALSE))
+      wind_horizon <- effective_wind_horizon(horizon)
+      session$sendCustomMessage(
+        "alertar:wind",
+        list(
+          mapId = session$ns("forecast_map"),
+          active = isTRUE(isolate(input$show_wind)) && store$wind_available,
+          url = if (store$wind_available) store$wind_url(wind_horizon) else NULL
+        )
+      )
+      invisible(TRUE)
+    }
+
     preload_generation <- 0L
     preload_indicator <- NULL
     preload_revision <- NULL
@@ -359,7 +379,9 @@ app_server <- function(store) {
               "alertar:preload",
               list(
                 rasterUrls = list(image$url),
-                windUrls = if (store$wind_available) list(store$wind_url(job_horizon)) else list()
+                windUrls = if (store$wind_available && !isTRUE(isolate(playing()))) {
+                  list(store$wind_url(job_horizon))
+                } else list()
               )
             )
           }, delay = preload_delay)
@@ -377,26 +399,12 @@ app_server <- function(store) {
       request <- layer_request()
       update_raster(request$id, request$horizon, request$revision)
       schedule_raster_preload(request$id, request$horizon)
-      session$sendCustomMessage(
-        "alertar:wind",
-        list(
-          mapId = session$ns("forecast_map"),
-          active = isTRUE(input$show_wind) && store$wind_available,
-          url = if (store$wind_available) store$wind_url(request$horizon) else NULL
-        )
-      )
+      if (!isTRUE(isolate(playing()))) send_wind_update(request$horizon)
     }, ignoreInit = TRUE)
 
     observeEvent(input$show_wind, {
       req(map_ready())
-      session$sendCustomMessage(
-        "alertar:wind",
-        list(
-          mapId = session$ns("forecast_map"),
-          active = isTRUE(input$show_wind) && store$wind_available,
-          url = if (store$wind_available) store$wind_url(selected_horizon()) else NULL
-        )
-      )
+      send_wind_update(selected_horizon())
     }, ignoreInit = TRUE)
 
     observeEvent(input$show_satellite, {
@@ -471,14 +479,13 @@ app_server <- function(store) {
         mapgl::maplibre_proxy("forecast_map", session) |>
           mapgl::set_layout_property("fires", "visibility", if (visible) "visible" else "none")
       }
-      session$sendCustomMessage(
-        "alertar:wind",
-        list(
-          mapId = session$ns("forecast_map"),
-          active = isTRUE(input$show_wind) && store$wind_available,
-          url = if (store$wind_available) store$wind_url(horizon) else NULL
+      if (store$wind_available) {
+        session$sendCustomMessage(
+          "alertar:preload",
+          list(rasterUrls = list(), windUrls = list(store$wind_url(animation_wind_horizon)))
         )
-      )
+      }
+      send_wind_update(horizon)
       session$sendCustomMessage(
         "alertar:language",
         list(
@@ -737,10 +744,7 @@ app_server <- function(store) {
         label = if (is_playing) tr(language, "pause") else tr(language, "animate"),
         icon = icon(if (is_playing) "pause" else "play")
       )
-      session$sendCustomMessage(
-        "alertar:wind-performance",
-        list(mapId = session$ns("forecast_map"), reduced = is_playing)
-      )
+      send_wind_update(isolate(displayed_horizon()))
     }
 
     select_random_municipality <- function() {
