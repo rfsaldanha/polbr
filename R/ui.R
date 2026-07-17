@@ -179,7 +179,7 @@ app_ui <- function(store) {
                 value = timezones$timezone[[i]],
                 selected = if (timezones$timezone[[i]] == "America/Sao_Paulo") "selected" else NULL,
                 title = timezones$label[[i]],
-                timezones$label[[i]]
+                timezones$code[[i]]
               )
             })
           )

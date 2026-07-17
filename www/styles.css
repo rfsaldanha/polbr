@@ -33,10 +33,10 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
 .totem-button.is-active { color: #06120f; background: var(--accent); }
 .totem-button.is-active .svg-inline--fa { color: #06120f; }
 .language-control, .timezone-control { display: flex; align-items: center; gap: 4px; padding: 0 6px 0 5px; border-right: 1px solid var(--line); }
-.language-control > .svg-inline--fa, .timezone-control > .svg-inline--fa { color: var(--accent); font-size: 11px; }
-.language-control select, .timezone-control select { height: 28px; padding: 2px 17px 2px 5px; color: #c8d7df; background-color: rgba(3,10,15,.7); border: 1px solid var(--line); border-radius: 7px; font: 700 9px/1 "Space Mono"; box-shadow: none; cursor: pointer; }
+.language-control > .svg-inline--fa, .timezone-control > .svg-inline--fa { flex: 0 0 auto; color: var(--accent); font-size: 11px; }
+.language-control select, .timezone-control select { box-sizing: border-box; height: 28px; min-width: 0; padding: 2px 18px 2px 6px; color: #c8d7df; background-color: rgba(3,10,15,.7); border: 1px solid var(--line); border-radius: 7px; font: 700 9px/1 "Space Mono"; box-shadow: none; cursor: pointer; }
 .language-control select { width: 48px; }
-.timezone-control select { width: 68px; }
+.timezone-control select { width: 58px; }
 
 .variable-panel { top: 132px; left: 24px; width: 250px; padding: 16px; border-radius: 16px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -202,7 +202,7 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
   .utility-button span { display: none; }
   .language-control select, .timezone-control select { height: 40px; font-size: 16px; }
   .language-control select { width: 58px; }
-  .timezone-control select { width: 78px; }
+  .timezone-control select { width: 64px; }
   .place-panel { top: calc(112px + env(safe-area-inset-top)); left: 12px; right: 12px; width: auto; max-height: calc(100dvh - 245px); }
   .place-panel .selectize-input, .selectize-dropdown { font-size: 16px !important; }
   .variable-panel { bottom: calc(130px + env(safe-area-inset-bottom)); width: calc(100% - 24px); }
