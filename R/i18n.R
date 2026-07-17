@@ -1,0 +1,240 @@
+language_choices <- function() {
+  c(
+    "Português" = "pt",
+    "Français" = "fr",
+    "Español" = "es",
+    "English" = "en"
+  )
+}
+
+normalize_language <- function(language) {
+  language <- language %||% "pt"
+  if (!language %in% unname(language_choices())) "pt" else language
+}
+
+map_language_code <- function(language) {
+  switch(normalize_language(language), pt = "pt", fr = "fr", es = "es", en = "en")
+}
+
+translations <- list(
+  pt = list(
+    app_title = "AlertAr Saúde | Previsão atmosférica",
+    layer_heading = "CAMADA ATMOSFÉRICA", local_heading = "LEITURA LOCAL",
+    wind_particles = "Partículas de vento", heat_spots = "Focos de calor",
+    satellite_image = "Imagem de satélite", territory_placeholder = "Buscar município, terra indígena, quilombo...",
+    map_zoom_in = "Aproximar", map_zoom_out = "Afastar", map_reset_bearing = "Redefinir orientação", map_toggle_projection = "Alternar projeção",
+    coverage_brazil = "Brasil", coverage_lac = "América Latina e Caribe",
+    animate = "Animar", pause = "Pausar", download_series = "Baixar série",
+    now = "Agora", history = "Dados históricos", about = "Sobre", close = "Fechar",
+    updated = "Atualizado %s BRT", reading_caption = "Média espacial no território e horário selecionados",
+    source_model = "MODELO CAMS • PASSO %dH • HORIZONTE 120H",
+    series_unavailable = "Série territorial indisponível", raster_error = "Não foi possível carregar o próximo quadro do mapa.",
+    technical_references = "REFERÊNCIAS TÉCNICAS",
+    no_reference = "Sem limite universal diretamente comparável a esta previsão.",
+    history_title = "Dados históricos",
+    history_intro = "Séries diárias municipais produzidas a partir da reanálise global CAMS EAC4. Os conjuntos incluem estatísticas zonais em CSV e Parquet e estão publicados no Zenodo.",
+    history_archive = "2003–2024", history_update = "Jan–ago de 2025",
+    about_title = "Sobre o projeto", about_project_heading = "AlertAr Saúde",
+    about_project_p1 = "Painel interativo de previsões atmosféricas para apoiar a vigilância em saúde, o planejamento de ações preventivas e o acesso público à informação ambiental. O horizonte de previsão é de até 120 horas.",
+    about_project_p2 = "Desenvolvido pelo Observatório de Clima e Saúde, no Laboratório de Informação em Saúde (LIS/ICICT) da Fundação Oswaldo Cruz (Fiocruz).",
+    about_methods_heading = "Dados e métodos",
+    about_methods_p1 = "As previsões são obtidas do Copernicus Atmosphere Monitoring Service (CAMS). PM2.5, PM10, temperatura, IUV, vento, aerossol e chuva acumulada são horários; O₃, CO, NO₂, SO₂ e IQAr são apresentados a cada três horas.",
+    about_methods_p2 = "O valor e o gráfico de cada território representam a média espacial das células que intersectam sua geometria. O IQAr segue as faixas de referência do CONAMA.",
+    about_coverage_heading = "Cobertura",
+    about_coverage_p1 = "A cobertura operacional atual é o Brasil. A arquitetura aceita pontos e polígonos de diferentes tipos territoriais e está preparada para expansão à América Latina e Caribe.",
+    about_code_heading = "Código aberto", about_code_p1 = "Os códigos de processamento e da aplicação estão disponíveis publicamente.",
+    data_processing = "Processamento de dados", shiny_application = "Aplicação R Shiny",
+    territory_municipality = "Município",
+    indicator_iqar_label = "Qualidade do ar", indicator_iqar_short = "IQAr", indicator_iqar_description = "Índice integrado da qualidade do ar segundo as faixas do CONAMA.",
+    indicator_pm25_label = "Partículas finas", indicator_pm25_short = "PM2.5", indicator_pm25_description = "Material particulado fino, capaz de atingir as regiões profundas dos pulmões.",
+    indicator_pm10_label = "Partículas inaláveis", indicator_pm10_short = "PM10", indicator_pm10_description = "Partículas inaláveis associadas a poeira, emissões, indústria e queimadas.",
+    indicator_o3_label = "Ozônio", indicator_o3_short = "O₃", indicator_o3_description = "Ozônio troposférico, poluente secundário irritante para as vias respiratórias.",
+    indicator_co_label = "Monóxido de carbono", indicator_co_short = "CO", indicator_co_description = "Gás gerado por combustão incompleta, especialmente veículos, indústria e queimadas.",
+    indicator_no2_label = "Dióxido de nitrogênio", indicator_no2_short = "NO₂", indicator_no2_description = "Gás reativo ligado principalmente a emissões veiculares e processos industriais.",
+    indicator_so2_label = "Dióxido de enxofre", indicator_so2_short = "SO₂", indicator_so2_description = "Gás irritante associado a combustíveis com enxofre e processos industriais.",
+    indicator_temp_label = "Temperatura", indicator_temp_short = "Temperatura", indicator_temp_description = "Temperatura do ar prevista próxima à superfície.",
+    indicator_uv_label = "Índice ultravioleta", indicator_uv_short = "IUV", indicator_uv_description = "Intensidade da radiação ultravioleta e risco associado à exposição solar.",
+    indicator_wind_speed_label = "Velocidade do vento", indicator_wind_speed_short = "Vento", indicator_wind_speed_description = "Velocidade do vento próxima à superfície. As partículas mostram sua direção.",
+    indicator_aerosol_label = "Aerossol orgânico", indicator_aerosol_short = "Aerossol", indicator_aerosol_description = "Profundidade óptica associada a partículas orgânicas em suspensão.",
+    indicator_prec_label = "Chuva acumulada", indicator_prec_short = "Chuva acumulada", indicator_prec_description = "Precipitação acumulada prevista.",
+    ref_who = "OMS 2021", ref_good = "Boa", ref_moderate = "Moderada", ref_bad = "Ruim", ref_very_bad = "Muito ruim",
+    ref_limit = "limite %s", ref_mean_24h = "%s · média 24h", ref_max_mean_8h = "%s · máxima média 8h",
+    ref_co_detail = "4 mg/m³ ≈ 3,5 ppm · média 24h", ref_sun_protection = "Proteção solar", ref_sun_detail = "recomendada a partir de IUV 3",
+    ref_uv_high = "Exposição muito alta", ref_uv_high_detail = "evitar o sol ao meio-dia",
+    note_iqar = "Faixas de comunicação do IQAr segundo orientação técnica do CONAMA.",
+    note_24h_native = "Referência OMS de curta duração. A curva mostra o passo nativo, não a média móvel de 24h.",
+    note_24h_3h = "Referência OMS de curta duração. A curva mostra previsões a cada 3h, não a média móvel de 24h.",
+    note_o3 = "Referência OMS para a máxima média de 8h. A curva mostra previsões a cada 3h.",
+    note_co = "Referência OMS de 4 mg/m³ em 24h, convertida aproximadamente para ppm a 25 °C.",
+    note_uv = "Níveis de ação recomendados pela OMS para proteção contra radiação ultravioleta."
+  ),
+  es = list(
+    app_title = "AlertAr Salud | Pronóstico atmosférico",
+    layer_heading = "CAPA ATMOSFÉRICA", local_heading = "LECTURA LOCAL",
+    wind_particles = "Partículas de viento", heat_spots = "Focos de calor",
+    satellite_image = "Imagen satelital", territory_placeholder = "Buscar municipio, tierra indígena, quilombo...",
+    map_zoom_in = "Acercar", map_zoom_out = "Alejar", map_reset_bearing = "Restablecer orientación", map_toggle_projection = "Cambiar proyección",
+    coverage_brazil = "Brasil", coverage_lac = "América Latina y el Caribe",
+    animate = "Animar", pause = "Pausar", download_series = "Descargar serie",
+    now = "Ahora", history = "Datos históricos", about = "Acerca de", close = "Cerrar",
+    updated = "Actualizado %s BRT", reading_caption = "Promedio espacial en el territorio y horario seleccionados",
+    source_model = "MODELO CAMS • PASO %dH • HORIZONTE 120H",
+    series_unavailable = "Serie territorial no disponible", raster_error = "No fue posible cargar el siguiente cuadro del mapa.",
+    technical_references = "REFERENCIAS TÉCNICAS", no_reference = "Sin un límite universal directamente comparable con este pronóstico.",
+    history_title = "Datos históricos", history_intro = "Series diarias municipales producidas a partir del reanálisis global CAMS EAC4. Los conjuntos incluyen estadísticas zonales en CSV y Parquet y están publicados en Zenodo.",
+    history_archive = "2003–2024", history_update = "Ene–ago de 2025",
+    about_title = "Acerca del proyecto", about_project_heading = "AlertAr Salud",
+    about_project_p1 = "Panel interactivo de pronósticos atmosféricos para apoyar la vigilancia en salud, la planificación de acciones preventivas y el acceso público a información ambiental. El horizonte de pronóstico es de hasta 120 horas.",
+    about_project_p2 = "Desarrollado por el Observatorio de Clima y Salud, en el Laboratorio de Información en Salud (LIS/ICICT) de la Fundación Oswaldo Cruz (Fiocruz).",
+    about_methods_heading = "Datos y métodos", about_methods_p1 = "Los pronósticos provienen del Copernicus Atmosphere Monitoring Service (CAMS). PM2.5, PM10, temperatura, IUV, viento, aerosol y lluvia acumulada son horarios; O₃, CO, NO₂, SO₂ e IQAr se presentan cada tres horas.",
+    about_methods_p2 = "El valor y el gráfico de cada territorio representan el promedio espacial de las celdas que intersectan su geometría. El IQAr sigue los rangos de referencia de CONAMA.",
+    about_coverage_heading = "Cobertura", about_coverage_p1 = "La cobertura operativa actual es Brasil. La arquitectura acepta puntos y polígonos de diferentes tipos territoriales y está preparada para expandirse a América Latina y el Caribe.",
+    about_code_heading = "Código abierto", about_code_p1 = "El código de procesamiento y de la aplicación está disponible públicamente.",
+    data_processing = "Procesamiento de datos", shiny_application = "Aplicación R Shiny", territory_municipality = "Municipio",
+    indicator_iqar_label = "Calidad del aire", indicator_iqar_short = "IQAr", indicator_iqar_description = "Índice integrado de calidad del aire según los rangos de CONAMA.",
+    indicator_pm25_label = "Partículas finas", indicator_pm25_short = "PM2.5", indicator_pm25_description = "Material particulado fino capaz de alcanzar las regiones profundas de los pulmones.",
+    indicator_pm10_label = "Partículas inhalables", indicator_pm10_short = "PM10", indicator_pm10_description = "Partículas inhalables asociadas con polvo, emisiones, industria e incendios.",
+    indicator_o3_label = "Ozono", indicator_o3_short = "O₃", indicator_o3_description = "Ozono troposférico, contaminante secundario irritante para las vías respiratorias.",
+    indicator_co_label = "Monóxido de carbono", indicator_co_short = "CO", indicator_co_description = "Gas generado por combustión incompleta, especialmente vehículos, industria e incendios.",
+    indicator_no2_label = "Dióxido de nitrógeno", indicator_no2_short = "NO₂", indicator_no2_description = "Gas reactivo asociado principalmente con emisiones vehiculares y procesos industriales.",
+    indicator_so2_label = "Dióxido de azufre", indicator_so2_short = "SO₂", indicator_so2_description = "Gas irritante asociado con combustibles que contienen azufre y procesos industriales.",
+    indicator_temp_label = "Temperatura", indicator_temp_short = "Temperatura", indicator_temp_description = "Temperatura del aire prevista cerca de la superficie.",
+    indicator_uv_label = "Índice ultravioleta", indicator_uv_short = "IUV", indicator_uv_description = "Intensidad de la radiación ultravioleta y riesgo asociado con la exposición solar.",
+    indicator_wind_speed_label = "Velocidad del viento", indicator_wind_speed_short = "Viento", indicator_wind_speed_description = "Velocidad del viento cerca de la superficie. Las partículas muestran su dirección.",
+    indicator_aerosol_label = "Aerosol orgánico", indicator_aerosol_short = "Aerosol", indicator_aerosol_description = "Profundidad óptica asociada con partículas orgánicas en suspensión.",
+    indicator_prec_label = "Lluvia acumulada", indicator_prec_short = "Lluvia acumulada", indicator_prec_description = "Precipitación acumulada prevista.",
+    ref_who = "OMS 2021", ref_good = "Buena", ref_moderate = "Moderada", ref_bad = "Mala", ref_very_bad = "Muy mala", ref_limit = "límite %s",
+    ref_mean_24h = "%s · promedio 24h", ref_max_mean_8h = "%s · máximo promedio 8h", ref_co_detail = "4 mg/m³ ≈ 3,5 ppm · promedio 24h",
+    ref_sun_protection = "Protección solar", ref_sun_detail = "recomendada desde IUV 3", ref_uv_high = "Exposición muy alta", ref_uv_high_detail = "evitar el sol al mediodía",
+    note_iqar = "Rangos de comunicación del IQAr según la orientación técnica de CONAMA.", note_24h_native = "Referencia OMS de corta duración. La curva muestra el paso nativo, no el promedio móvil de 24h.",
+    note_24h_3h = "Referencia OMS de corta duración. La curva muestra pronósticos cada 3h, no el promedio móvil de 24h.", note_o3 = "Referencia OMS para el máximo promedio de 8h. La curva muestra pronósticos cada 3h.",
+    note_co = "Referencia OMS de 4 mg/m³ en 24h, convertida aproximadamente a ppm a 25 °C.", note_uv = "Niveles de acción recomendados por la OMS para protección contra radiación ultravioleta."
+  ),
+  fr = list(
+    app_title = "AlertAr Santé | Prévisions atmosphériques",
+    layer_heading = "COUCHE ATMOSPHÉRIQUE", local_heading = "LECTURE LOCALE",
+    wind_particles = "Particules de vent", heat_spots = "Foyers d’incendie", satellite_image = "Image satellite",
+    territory_placeholder = "Rechercher une commune, une terre autochtone, un quilombo...",
+    map_zoom_in = "Zoom avant", map_zoom_out = "Zoom arrière", map_reset_bearing = "Réinitialiser l’orientation", map_toggle_projection = "Changer de projection",
+    coverage_brazil = "Brésil", coverage_lac = "Amérique latine et Caraïbes",
+    animate = "Animer", pause = "Pause", download_series = "Télécharger la série",
+    now = "Maintenant", history = "Données historiques", about = "À propos", close = "Fermer",
+    updated = "Mis à jour %s BRT", reading_caption = "Moyenne spatiale pour le territoire et l’heure sélectionnés",
+    source_model = "MODÈLE CAMS • PAS %dH • HORIZON 120H", series_unavailable = "Série territoriale indisponible",
+    raster_error = "Impossible de charger l’image suivante de la carte.", technical_references = "RÉFÉRENCES TECHNIQUES",
+    no_reference = "Aucune limite universelle directement comparable à cette prévision.",
+    history_title = "Données historiques", history_intro = "Séries municipales quotidiennes produites à partir de la réanalyse mondiale CAMS EAC4. Les jeux comprennent des statistiques zonales en CSV et Parquet et sont publiés sur Zenodo.",
+    history_archive = "2003–2024", history_update = "Jan–août 2025",
+    about_title = "À propos du projet", about_project_heading = "AlertAr Santé",
+    about_project_p1 = "Tableau de bord interactif de prévisions atmosphériques destiné à soutenir la surveillance sanitaire, la planification d’actions préventives et l’accès public à l’information environnementale. L’horizon atteint 120 heures.",
+    about_project_p2 = "Développé par l’Observatoire du climat et de la santé, au Laboratoire d’information en santé (LIS/ICICT) de la Fondation Oswaldo Cruz (Fiocruz).",
+    about_methods_heading = "Données et méthodes", about_methods_p1 = "Les prévisions proviennent du Copernicus Atmosphere Monitoring Service (CAMS). PM2.5, PM10, température, IUV, vent, aérosol et pluie cumulée sont horaires ; O₃, CO, NO₂, SO₂ et IQAr sont présentés toutes les trois heures.",
+    about_methods_p2 = "La valeur et le graphique de chaque territoire représentent la moyenne spatiale des cellules qui intersectent sa géométrie. L’IQAr suit les classes de référence du CONAMA.",
+    about_coverage_heading = "Couverture", about_coverage_p1 = "La couverture opérationnelle actuelle est le Brésil. L’architecture accepte des points et des polygones de différents types territoriaux et est prête à s’étendre à l’Amérique latine et aux Caraïbes.",
+    about_code_heading = "Code ouvert", about_code_p1 = "Les codes de traitement et de l’application sont disponibles publiquement.",
+    data_processing = "Traitement des données", shiny_application = "Application R Shiny", territory_municipality = "Commune",
+    indicator_iqar_label = "Qualité de l’air", indicator_iqar_short = "IQAr", indicator_iqar_description = "Indice intégré de qualité de l’air selon les classes du CONAMA.",
+    indicator_pm25_label = "Particules fines", indicator_pm25_short = "PM2.5", indicator_pm25_description = "Particules fines capables d’atteindre les régions profondes des poumons.",
+    indicator_pm10_label = "Particules inhalables", indicator_pm10_short = "PM10", indicator_pm10_description = "Particules inhalables associées aux poussières, émissions, industries et incendies.",
+    indicator_o3_label = "Ozone", indicator_o3_short = "O₃", indicator_o3_description = "Ozone troposphérique, polluant secondaire irritant pour les voies respiratoires.",
+    indicator_co_label = "Monoxyde de carbone", indicator_co_short = "CO", indicator_co_description = "Gaz issu d’une combustion incomplète, notamment des véhicules, industries et incendies.",
+    indicator_no2_label = "Dioxyde d’azote", indicator_no2_short = "NO₂", indicator_no2_description = "Gaz réactif principalement lié aux émissions routières et aux procédés industriels.",
+    indicator_so2_label = "Dioxyde de soufre", indicator_so2_short = "SO₂", indicator_so2_description = "Gaz irritant associé aux combustibles soufrés et aux procédés industriels.",
+    indicator_temp_label = "Température", indicator_temp_short = "Température", indicator_temp_description = "Température de l’air prévue près de la surface.",
+    indicator_uv_label = "Indice ultraviolet", indicator_uv_short = "IUV", indicator_uv_description = "Intensité du rayonnement ultraviolet et risque lié à l’exposition solaire.",
+    indicator_wind_speed_label = "Vitesse du vent", indicator_wind_speed_short = "Vent", indicator_wind_speed_description = "Vitesse du vent près de la surface. Les particules indiquent sa direction.",
+    indicator_aerosol_label = "Aérosol organique", indicator_aerosol_short = "Aérosol", indicator_aerosol_description = "Épaisseur optique associée aux particules organiques en suspension.",
+    indicator_prec_label = "Pluie cumulée", indicator_prec_short = "Pluie cumulée", indicator_prec_description = "Précipitations cumulées prévues.",
+    ref_who = "OMS 2021", ref_good = "Bonne", ref_moderate = "Modérée", ref_bad = "Mauvaise", ref_very_bad = "Très mauvaise", ref_limit = "limite %s",
+    ref_mean_24h = "%s · moyenne 24h", ref_max_mean_8h = "%s · moyenne maximale 8h", ref_co_detail = "4 mg/m³ ≈ 3,5 ppm · moyenne 24h",
+    ref_sun_protection = "Protection solaire", ref_sun_detail = "recommandée dès IUV 3", ref_uv_high = "Exposition très élevée", ref_uv_high_detail = "éviter le soleil à midi",
+    note_iqar = "Classes de communication de l’IQAr selon les orientations techniques du CONAMA.", note_24h_native = "Référence OMS de courte durée. La courbe montre le pas natif, pas la moyenne mobile sur 24h.",
+    note_24h_3h = "Référence OMS de courte durée. La courbe montre des prévisions toutes les 3h, pas la moyenne mobile sur 24h.", note_o3 = "Référence OMS pour la moyenne maximale sur 8h. La courbe montre des prévisions toutes les 3h.",
+    note_co = "Référence OMS de 4 mg/m³ sur 24h, convertie approximativement en ppm à 25 °C.", note_uv = "Niveaux d’action recommandés par l’OMS pour la protection contre les ultraviolets."
+  ),
+  en = list(
+    app_title = "AlertAr Health | Atmospheric forecast",
+    layer_heading = "ATMOSPHERIC LAYER", local_heading = "LOCAL READING",
+    wind_particles = "Wind particles", heat_spots = "Active fires", satellite_image = "Satellite imagery",
+    territory_placeholder = "Search municipality, Indigenous land, quilombo...",
+    map_zoom_in = "Zoom in", map_zoom_out = "Zoom out", map_reset_bearing = "Reset bearing", map_toggle_projection = "Toggle projection",
+    coverage_brazil = "Brazil", coverage_lac = "Latin America and the Caribbean",
+    animate = "Animate", pause = "Pause", download_series = "Download series",
+    now = "Now", history = "Historical data", about = "About", close = "Close",
+    updated = "Updated %s BRT", reading_caption = "Spatial average for the selected territory and time",
+    source_model = "CAMS MODEL • %dH STEP • 120H HORIZON", series_unavailable = "Territorial series unavailable",
+    raster_error = "The next map frame could not be loaded.", technical_references = "TECHNICAL REFERENCES",
+    no_reference = "No universal limit is directly comparable with this forecast.",
+    history_title = "Historical data", history_intro = "Daily municipal series produced from the CAMS EAC4 global reanalysis. The datasets include zonal statistics in CSV and Parquet and are published on Zenodo.",
+    history_archive = "2003–2024", history_update = "Jan–Aug 2025",
+    about_title = "About the project", about_project_heading = "AlertAr Health",
+    about_project_p1 = "Interactive atmospheric forecast dashboard supporting health surveillance, preventive planning and public access to environmental information. The forecast horizon extends to 120 hours.",
+    about_project_p2 = "Developed by the Observatory of Climate and Health at the Health Information Laboratory (LIS/ICICT), Oswaldo Cruz Foundation (Fiocruz).",
+    about_methods_heading = "Data and methods", about_methods_p1 = "Forecasts come from the Copernicus Atmosphere Monitoring Service (CAMS). PM2.5, PM10, temperature, UVI, wind, aerosol and accumulated rainfall are hourly; O₃, CO, NO₂, SO₂ and IQAr are presented every three hours.",
+    about_methods_p2 = "Each territory’s value and chart represent the spatial average of cells intersecting its geometry. IQAr follows CONAMA reference bands.",
+    about_coverage_heading = "Coverage", about_coverage_p1 = "Current operational coverage is Brazil. The architecture accepts points and polygons for different territory types and is ready to expand to Latin America and the Caribbean.",
+    about_code_heading = "Open source", about_code_p1 = "The processing and application source code is publicly available.",
+    data_processing = "Data processing", shiny_application = "R Shiny application", territory_municipality = "Municipality",
+    indicator_iqar_label = "Air quality", indicator_iqar_short = "IQAr", indicator_iqar_description = "Integrated air quality index based on CONAMA bands.",
+    indicator_pm25_label = "Fine particles", indicator_pm25_short = "PM2.5", indicator_pm25_description = "Fine particulate matter capable of reaching deep regions of the lungs.",
+    indicator_pm10_label = "Inhalable particles", indicator_pm10_short = "PM10", indicator_pm10_description = "Inhalable particles associated with dust, emissions, industry and fires.",
+    indicator_o3_label = "Ozone", indicator_o3_short = "O₃", indicator_o3_description = "Tropospheric ozone, a secondary pollutant that irritates the respiratory tract.",
+    indicator_co_label = "Carbon monoxide", indicator_co_short = "CO", indicator_co_description = "Gas generated by incomplete combustion, especially vehicles, industry and fires.",
+    indicator_no2_label = "Nitrogen dioxide", indicator_no2_short = "NO₂", indicator_no2_description = "Reactive gas mainly associated with vehicle emissions and industrial processes.",
+    indicator_so2_label = "Sulfur dioxide", indicator_so2_short = "SO₂", indicator_so2_description = "Irritating gas associated with sulfur-containing fuels and industrial processes.",
+    indicator_temp_label = "Temperature", indicator_temp_short = "Temperature", indicator_temp_description = "Forecast air temperature near the surface.",
+    indicator_uv_label = "Ultraviolet index", indicator_uv_short = "UVI", indicator_uv_description = "Ultraviolet radiation intensity and risk associated with sun exposure.",
+    indicator_wind_speed_label = "Wind speed", indicator_wind_speed_short = "Wind", indicator_wind_speed_description = "Wind speed near the surface. Particles show its direction.",
+    indicator_aerosol_label = "Organic aerosol", indicator_aerosol_short = "Aerosol", indicator_aerosol_description = "Optical depth associated with suspended organic particles.",
+    indicator_prec_label = "Accumulated rainfall", indicator_prec_short = "Accumulated rainfall", indicator_prec_description = "Forecast accumulated precipitation.",
+    ref_who = "WHO 2021", ref_good = "Good", ref_moderate = "Moderate", ref_bad = "Poor", ref_very_bad = "Very poor", ref_limit = "limit %s",
+    ref_mean_24h = "%s · 24h mean", ref_max_mean_8h = "%s · maximum 8h mean", ref_co_detail = "4 mg/m³ ≈ 3.5 ppm · 24h mean",
+    ref_sun_protection = "Sun protection", ref_sun_detail = "recommended from UVI 3", ref_uv_high = "Very high exposure", ref_uv_high_detail = "avoid midday sun",
+    note_iqar = "IQAr communication bands following CONAMA technical guidance.", note_24h_native = "Short-term WHO reference. The curve shows the native step, not a 24h moving mean.",
+    note_24h_3h = "Short-term WHO reference. The curve shows 3-hourly forecasts, not a 24h moving mean.", note_o3 = "WHO reference for the maximum 8h mean. The curve shows 3-hourly forecasts.",
+    note_co = "WHO 24h reference of 4 mg/m³, approximately converted to ppm at 25 °C.", note_uv = "WHO-recommended action levels for ultraviolet radiation protection."
+  )
+)
+
+tr <- function(language, key, ..., default = NULL) {
+  language <- normalize_language(language)
+  value <- translations[[language]][[key]] %||% translations$pt[[key]] %||% default %||% key
+  args <- list(...)
+  if (length(args)) do.call(sprintf, c(list(value), args)) else value
+}
+
+indicator_text <- function(language, id, field, default = NULL) {
+  tr(language, paste("indicator", id, field, sep = "_"), default = default)
+}
+
+localized_reference <- function(language, id, reference, index) {
+  label <- switch(
+    id,
+    iqar = tr(language, c("ref_good", "ref_moderate", "ref_bad", "ref_very_bad")[[index]]),
+    uv = tr(language, c("ref_sun_protection", "ref_uv_high")[[index]]),
+    tr(language, "ref_who")
+  )
+  detail <- switch(
+    id,
+    iqar = tr(language, "ref_limit", format(reference$value, trim = TRUE)),
+    pm25 = tr(language, "ref_mean_24h", "15 µg/m³"),
+    pm10 = tr(language, "ref_mean_24h", "45 µg/m³"),
+    o3 = tr(language, "ref_max_mean_8h", "100 µg/m³"),
+    co = tr(language, "ref_co_detail"),
+    no2 = tr(language, "ref_mean_24h", "25 µg/m³"),
+    so2 = tr(language, "ref_mean_24h", "40 µg/m³"),
+    uv = tr(language, c("ref_sun_detail", "ref_uv_high_detail")[[index]]),
+    reference$detail
+  )
+  modifyList(reference, list(label = label, detail = detail))
+}
+
+reference_note <- function(language, id, default = "") {
+  key <- switch(
+    id,
+    iqar = "note_iqar", pm25 = "note_24h_native", pm10 = "note_24h_native",
+    o3 = "note_o3", co = "note_co", no2 = "note_24h_3h", so2 = "note_24h_3h",
+    uv = "note_uv", NULL
+  )
+  if (is.null(key)) default else tr(language, key, default = default)
+}

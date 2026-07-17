@@ -1,93 +1,73 @@
-historical_record_card <- function(label, archive_url, update_url) {
+historical_record_card <- function(label, archive_url, update_url, language = "pt") {
   div(
     class = "history-card",
     h4(label),
     tags$a(
-      icon("archive"), span("2003–2024"),
+      icon("archive"), span(tr(language, "history_archive")),
       href = archive_url, target = "_blank", rel = "noopener noreferrer"
     ),
     tags$a(
-      icon("calendar"), span("Jan–ago de 2025"),
+      icon("calendar"), span(tr(language, "history_update")),
       href = update_url, target = "_blank", rel = "noopener noreferrer"
     )
   )
 }
 
-historical_data_modal <- function() {
+historical_data_modal <- function(language = "pt") {
   modalDialog(
-    title = tagList(icon("database"), "Dados históricos"),
+    title = tagList(icon("database"), tr(language, "history_title")),
     div(
       class = "modal-intro",
-      p(
-        "Séries diárias municipais produzidas a partir da reanálise global CAMS EAC4. ",
-        "Os conjuntos incluem estatísticas zonais em CSV e Parquet e estão publicados no Zenodo."
-      )
+      p(tr(language, "history_intro"))
     ),
     div(
       class = "history-grid",
-      historical_record_card("PM2.5", "https://zenodo.org/records/16374139", "https://zenodo.org/records/18552120"),
-      historical_record_card("PM10", "https://zenodo.org/records/16419737", "https://zenodo.org/records/18554403"),
-      historical_record_card("Ozônio (O₃)", "https://zenodo.org/records/17025187", "https://zenodo.org/records/18558668"),
-      historical_record_card("Monóxido de carbono (CO)", "https://zenodo.org/records/16984341", "https://zenodo.org/records/18555894"),
-      historical_record_card("Dióxido de nitrogênio (NO₂)", "https://zenodo.org/records/17019753", "https://zenodo.org/records/18556588"),
-      historical_record_card("Dióxido de enxofre (SO₂)", "https://zenodo.org/records/17047073", "https://zenodo.org/records/18559084")
+      historical_record_card(indicator_text(language, "pm25", "short", "PM2.5"), "https://zenodo.org/records/16374139", "https://zenodo.org/records/18552120", language),
+      historical_record_card(indicator_text(language, "pm10", "short", "PM10"), "https://zenodo.org/records/16419737", "https://zenodo.org/records/18554403", language),
+      historical_record_card(indicator_text(language, "o3", "label", "O₃"), "https://zenodo.org/records/17025187", "https://zenodo.org/records/18558668", language),
+      historical_record_card(indicator_text(language, "co", "label", "CO"), "https://zenodo.org/records/16984341", "https://zenodo.org/records/18555894", language),
+      historical_record_card(indicator_text(language, "no2", "label", "NO₂"), "https://zenodo.org/records/17019753", "https://zenodo.org/records/18556588", language),
+      historical_record_card(indicator_text(language, "so2", "label", "SO₂"), "https://zenodo.org/records/17047073", "https://zenodo.org/records/18559084", language)
     ),
-    footer = modalButton("Fechar"),
+    footer = modalButton(tr(language, "close")),
     easyClose = TRUE,
     size = "l"
   )
 }
 
-about_project_modal <- function() {
+about_project_modal <- function(language = "pt") {
   modalDialog(
-    title = tagList(icon("info-circle"), "Sobre o projeto"),
+    title = tagList(icon("info-circle"), tr(language, "about_title")),
     div(
       class = "about-grid",
       tags$section(
-        h3("AlertAr Saúde"),
-        p(
-          "Painel interativo de previsões atmosféricas para apoiar a vigilância em saúde, ",
-          "o planejamento de ações preventivas e o acesso público à informação ambiental. ",
-          "O horizonte de previsão é de até 120 horas."
-        ),
-        p(
-          "Desenvolvido pelo Observatório de Clima e Saúde, no Laboratório de Informação ",
-          "em Saúde (LIS/ICICT) da Fundação Oswaldo Cruz (Fiocruz)."
-        )
+        h3(tr(language, "about_project_heading")),
+        p(tr(language, "about_project_p1")),
+        p(tr(language, "about_project_p2"))
       ),
       tags$section(
-        h3("Dados e métodos"),
-        p(
-          "As previsões são obtidas do Copernicus Atmosphere Monitoring Service (CAMS). ",
-          "PM2.5, PM10, temperatura, IUV, vento, aerossol e chuva acumulada são horários; ",
-          "O₃, CO, NO₂, SO₂ e IQAr são apresentados a cada três horas."
-        ),
-        p(
-          "O valor e o gráfico de cada território representam a média espacial das células ",
-          "que intersectam sua geometria. O IQAr segue as faixas de referência do CONAMA."
-        )
+        h3(tr(language, "about_methods_heading")),
+        p(tr(language, "about_methods_p1")),
+        p(tr(language, "about_methods_p2"))
       ),
       tags$section(
-        h3("Cobertura"),
-        p(
-          "A cobertura operacional atual é o Brasil. A arquitetura aceita pontos e polígonos ",
-          "de diferentes tipos territoriais e está preparada para expansão à América Latina e Caribe."
-        )
+        h3(tr(language, "about_coverage_heading")),
+        p(tr(language, "about_coverage_p1"))
       ),
       tags$section(
-        h3("Código aberto"),
-        p("Os códigos de processamento e da aplicação estão disponíveis publicamente."),
+        h3(tr(language, "about_code_heading")),
+        p(tr(language, "about_code_p1")),
         tags$a(
-          icon("github"), " Processamento de dados",
+          icon("github"), paste0(" ", tr(language, "data_processing")),
           href = "https://github.com/rfsaldanha/camsdata", target = "_blank", rel = "noopener noreferrer"
         ),
         tags$a(
-          icon("github"), " Aplicação R Shiny",
+          icon("github"), paste0(" ", tr(language, "shiny_application")),
           href = "https://github.com/rfsaldanha/polbr", target = "_blank", rel = "noopener noreferrer"
         )
       )
     ),
-    footer = modalButton("Fechar"),
+    footer = modalButton(tr(language, "close")),
     easyClose = TRUE,
     size = "l"
   )
@@ -95,10 +75,13 @@ about_project_modal <- function() {
 
 app_ui <- function(store) {
   catalog <- store$catalog[store$available]
-  indicator_choices <- stats::setNames(names(catalog), vapply(catalog, `[[`, character(1), "short"))
+  indicator_choices <- stats::setNames(
+    names(catalog),
+    vapply(names(catalog), function(id) indicator_text("pt", id, "short", catalog[[id]]$short), character(1))
+  )
 
   bslib::page_fillable(
-    title = "AlertAr Saude | Previsao atmosferica",
+    title = tr("pt", "app_title"),
     theme = bslib::bs_theme(version = 5, bg = "#071018", fg = "#edf7ff", primary = "#35d4b4"),
     fillable_mobile = TRUE,
     tags$head(
@@ -122,48 +105,63 @@ app_ui <- function(store) {
         ),
         div(
           class = "product-lockup",
-          h1("AlertAr", span(" Saude")),
+          h1("AlertAr", span(" Saúde")),
           uiOutput("update_badge", container = div, class = "update-row")
         )
       ),
 
       tags$nav(
         class = "utility-nav glass-panel",
+        div(
+          class = "language-control",
+          icon("globe"),
+          tags$select(
+            id = "language",
+            class = "shiny-input-select form-control",
+            title = "Idioma / Langue / Language",
+            `aria-label` = "Idioma / Langue / Language",
+            tags$option(value = "pt", selected = "selected", "PT"),
+            tags$option(value = "fr", "FR"),
+            tags$option(value = "es", "ES"),
+            tags$option(value = "en", "EN")
+          )
+        ),
         actionButton(
           "open_history",
-          label = tagList(icon("database"), span("Dados históricos")),
+          label = tagList(icon("database"), span(id = "label-history", tr("pt", "history"))),
           class = "utility-button"
         ),
         actionButton(
           "open_about",
-          label = tagList(icon("info-circle"), span("Sobre")),
+          label = tagList(icon("info-circle"), span(id = "label-about", tr("pt", "about"))),
           class = "utility-button"
         )
       ),
 
       tags$aside(
         class = "variable-panel glass-panel",
-        div(class = "panel-heading", span("CAMADA ATMOSFERICA"), span(class = "live-dot")),
+        div(class = "panel-heading", span(id = "label-layer-heading", tr("pt", "layer_heading")), span(class = "live-dot")),
         selectInput("indicator", NULL, choices = indicator_choices, selected = names(indicator_choices)[[1]]),
         uiOutput("indicator_summary"),
         div(class = "divider"),
         div(
           class = "layer-switches",
-          checkboxInput("show_wind", "Particulas de vento", value = store$wind_available),
-          checkboxInput("show_fires", "Focos de calor", value = TRUE),
-          checkboxInput("show_satellite", "Imagem de satelite", value = FALSE)
+          checkboxInput("show_wind", tr("pt", "wind_particles"), value = store$wind_available),
+          checkboxInput("show_fires", tr("pt", "heat_spots"), value = TRUE),
+          checkboxInput("show_satellite", tr("pt", "satellite_image"), value = FALSE)
         )
       ),
 
       tags$aside(
         class = "place-panel glass-panel",
-        div(class = "panel-heading", span("LEITURA LOCAL"), actionButton("toggle_details", "−", class = "icon-button")),
-        selectizeInput("territory", NULL, choices = NULL, options = list(placeholder = "Buscar municipio, terra indigena, quilombo...")),
+        div(class = "panel-heading", span(id = "label-local-heading", tr("pt", "local_heading")), actionButton("toggle_details", "−", class = "icon-button")),
+        selectizeInput("territory", NULL, choices = NULL, options = list(placeholder = tr("pt", "territory_placeholder"))),
         div(
           id = "details-body",
           uiOutput("local_reading"),
-          plotOutput("forecast_spark", height = "112px"),
-          downloadButton("download_series", "Baixar serie", class = "download-link")
+          plotOutput("forecast_spark", height = "190px"),
+          uiOutput("forecast_references", container = div, class = "reference-guide"),
+          downloadButton("download_series", span(id = "label-download", tr("pt", "download_series")), class = "download-link")
         )
       ),
 
@@ -176,17 +174,17 @@ app_ui <- function(store) {
         class = "timeline-panel glass-panel",
         div(
           class = "timeline-meta",
-          actionButton("play", label = tagList(icon("play"), span("Animar")), class = "play-button"),
+          actionButton("play", label = tagList(icon("play"), span(tr("pt", "animate"))), class = "play-button"),
           div(uiOutput("forecast_time", container = div), class = "forecast-clock")
         ),
         div(
           class = "timeline-control",
           sliderInput("horizon", NULL, min = 0, max = 120, value = 12, step = 3, ticks = FALSE),
-          div(class = "day-labels", span("Agora"), span("+24h"), span("+48h"), span("+72h"), span("+96h"), span("+120h"))
+          div(class = "day-labels", span(id = "label-now", tr("pt", "now")), span("+24h"), span("+48h"), span("+72h"), span("+96h"), span("+120h"))
         )
       ),
 
-      div(class = "credits", paste0("CAMS / Copernicus  •  ", store$coverage$label, "  •  LIS / ICICT / Fiocruz"))
+      div(id = "label-credits", class = "credits", paste0("CAMS / Copernicus  •  ", store$coverage$label, "  •  LIS / ICICT / Fiocruz"))
     )
   )
 }

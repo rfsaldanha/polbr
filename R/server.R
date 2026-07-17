@@ -3,15 +3,36 @@ app_server <- function(store) {
   function(input, output, session) {
     catalog <- store$catalog
     territories <- store$territories
+    current_language <- reactive(normalize_language(input$language))
+    localized_indicator_choices <- function(language) {
+      stats::setNames(
+        store$available,
+        vapply(
+          store$available,
+          function(id) indicator_text(language, id, "short", catalog[[id]]$short),
+          character(1)
+        )
+      )
+    }
+    localized_territory_choices <- function(language) {
+      types <- as.character(territories$territory_type)
+      is_municipality <- tolower(types) %in% c("municipio", "município", "municipality", "commune")
+      types[is_municipality] <- tr(language, "territory_municipality")
+      lapply(
+        split(seq_len(nrow(territories)), types),
+        function(i) stats::setNames(territories$territory_id[i], territories$display_name[i])
+      )
+    }
     default_territory <- if ("330455" %in% territories$territory_id) "330455" else territories$territory_id[[1]]
-    territory_choices <- lapply(
-      split(seq_len(nrow(territories)), territories$territory_type),
-      function(i) stats::setNames(territories$territory_id[i], territories$display_name[i])
-    )
     map_ready <- reactiveVal(FALSE)
 
     session$onFlushed(function() {
-      updateSelectizeInput(session, "territory", choices = territory_choices, selected = default_territory, server = TRUE)
+      language <- isolate(current_language())
+      updateSelectizeInput(
+        session, "territory",
+        choices = localized_territory_choices(language), selected = default_territory,
+        options = list(placeholder = tr(language, "territory_placeholder")), server = TRUE
+      )
     }, once = TRUE)
 
     output$forecast_map <- mapgl::renderMaplibre({
@@ -242,7 +263,20 @@ app_server <- function(store) {
         "alertar:language",
         list(
           mapId = session$ns("forecast_map"),
-          language = store$coverage$map_language
+          language = map_language_code(current_language())
+        )
+      )
+      language <- current_language()
+      session$sendCustomMessage(
+        "alertar:interface",
+        list(
+          mapControls = stats::setNames(
+            list(
+              tr(language, "map_zoom_in"), tr(language, "map_zoom_out"),
+              tr(language, "map_reset_bearing"), tr(language, "map_toggle_projection")
+            ),
+            c(".maplibregl-ctrl-zoom-in", ".maplibregl-ctrl-zoom-out", ".maplibregl-ctrl-compass", ".maplibregl-ctrl-globe")
+          )
         )
       )
     }, once = TRUE)
@@ -263,52 +297,70 @@ app_server <- function(store) {
     })
 
     output$update_badge <- renderUI({
+      language <- current_language()
       time <- as.POSIXct(forecast_origin(), tz = "America/Sao_Paulo")
-      tagList(span(class = "status-dot"), span("Atualizado ", format(time, "%d/%m • %H:%M"), " BRT"))
+      date_format <- if (language == "en") "%Y-%m-%d • %H:%M" else "%d/%m • %H:%M"
+      tagList(span(class = "status-dot"), span(tr(language, "updated", format(time, date_format))))
     })
 
     output$forecast_time <- renderUI({
+      language <- current_language()
       horizon <- selected_horizon()
       time <- as.POSIXct(forecast_origin() + horizon * 3600, tz = "America/Sao_Paulo")
+      date_format <- if (language == "en") "%Y-%m-%d • %H:%M BRT" else "%d/%m/%Y • %H:%M BRT"
       tagList(
         strong(sprintf("+%03dh", horizon)),
-        span(format(time, "%d/%m/%Y • %H:%M BRT"))
+        span(format(time, date_format))
       )
     })
 
     output$indicator_summary <- renderUI({
+      language <- current_language()
       cfg <- selected_config()
+      id <- input$indicator
       tagList(
-        div(class = "indicator-name", cfg$label),
-        p(cfg$description),
-        div(class = "source-label", sprintf("MODELO CAMS • PASSO %dH • HORIZONTE 120H", cfg$interval))
+        div(class = "indicator-name", indicator_text(language, id, "label", cfg$label)),
+        p(indicator_text(language, id, "description", cfg$description)),
+        div(class = "source-label", tr(language, "source_model", cfg$interval))
       )
     })
 
     output$local_reading <- renderUI({
       req(input$territory)
+      language <- current_language()
       cfg <- selected_config()
       territory <- territories[territories$territory_id == input$territory, , drop = FALSE]
       value <- selected_value()
+      territory_type <- as.character(territory$territory_type[[1]])
+      if (tolower(territory_type) %in% c("municipio", "município", "municipality", "commune")) {
+        territory_type <- tr(language, "territory_municipality")
+      }
+      decimal_mark <- if (language == "en") "." else ","
       tagList(
         div(
           class = "territory-label",
           territory$display_name[[1]],
-          span(class = "territory-type", territory$territory_type[[1]])
+          span(class = "territory-type", territory_type)
         ),
         div(
           class = "value-row",
-          span(class = "reading-value", if (is.finite(value)) format(round(value, cfg$digits), nsmall = cfg$digits, decimal.mark = ",") else "—"),
+          span(class = "reading-value", if (is.finite(value)) format(round(value, cfg$digits), nsmall = cfg$digits, decimal.mark = decimal_mark) else "—"),
           span(class = "reading-unit", pretty_unit(cfg$unit))
         ),
-        div(class = "reading-caption", "Media espacial no territorio e horario selecionados")
+        div(class = "reading-caption", tr(language, "reading_caption"))
       )
     })
 
     output$forecast_spark <- renderPlot({
       data <- series()
-      validate(need(nrow(data), "Serie territorial indisponivel"))
+      language <- current_language()
+      validate(need(nrow(data), tr(language, "series_unavailable")))
       cfg <- selected_config()
+      id <- input$indicator
+      references <- Map(
+        function(reference, index) localized_reference(language, id, reference, index),
+        cfg$references %||% list(), seq_along(cfg$references %||% list())
+      )
       target <- forecast_origin() + selected_horizon() * 3600
       selected_index <- which.min(abs(as.numeric(data$date - target)))
       selected_y <- pmax(cfg$range[[1]], pmin(cfg$range[[2]], data$value[[selected_index]]))
@@ -318,25 +370,80 @@ app_server <- function(store) {
         round(y_ticks, cfg$digits),
         trim = TRUE,
         scientific = FALSE,
-        decimal.mark = ","
+        decimal.mark = if (language == "en") "." else ","
       )
 
-      par(mar = c(1.2, 3.1, .5, .5), bg = NA, fg = "#7890a0")
+      unit_label <- switch(
+        cfg$unit,
+        "ug/m3" = "µg/m³",
+        "C" = "°C",
+        cfg$unit
+      )
+      x_ticks <- seq(min(data$date), max(data$date), length.out = 5)
+
+      par(mar = c(2.2, 3.8, .7, .7), bg = NA, fg = "#7890a0")
       plot(
         data$date, data$value,
         type = "n", ylim = cfg$range, axes = FALSE,
         xlab = "", ylab = "", xaxs = "i", yaxs = "i"
       )
       abline(h = y_ticks, col = "#7890a022", lwd = .7)
+      abline(v = x_ticks, col = "#7890a014", lwd = .7)
+      for (reference in references) {
+        if (reference$value < cfg$range[[1]] || reference$value > cfg$range[[2]]) next
+        abline(h = reference$value, col = reference$color, lwd = 1.15, lty = 2)
+        label_x <- par("usr")[[2]] - diff(par("usr")[1:2]) * .012
+        text(
+          label_x, reference$value, reference$label,
+          adj = c(1, -.25), col = reference$color,
+          cex = .56, font = 2, xpd = FALSE
+        )
+      }
       lines(data$date, data$value, col = "#35d4b4", lwd = 2.2)
       abline(v = target, col = "#f8fafc66", lty = 3)
       points(target, selected_y, pch = 21, bg = "#35d4b4", col = "white", cex = 1.1)
-      axis.POSIXct(1, at = seq(min(data$date), max(data$date), length.out = 4), format = "%d/%m", col = NA, col.axis = "#7890a0", cex.axis = .72)
-      axis(2, at = y_ticks, labels = y_labels, las = 1, col = NA, col.axis = "#7890a0", cex.axis = .6, mgp = c(0, .35, 0))
+      time_format <- if (language == "en") "%m/%d\n%Hh" else "%d/%m\n%Hh"
+      axis.POSIXct(1, at = x_ticks, format = time_format, col = NA, col.axis = "#7890a0", cex.axis = .62, padj = .2)
+      axis(2, at = y_ticks, labels = y_labels, las = 1, col = NA, col.axis = "#7890a0", cex.axis = .62, mgp = c(0, .45, 0))
+      mtext(unit_label, side = 2, line = 2.65, col = "#7890a0", cex = .58)
     }, bg = "transparent", res = 110)
 
-    output$map_legend <- renderUI({
+    output$forecast_references <- renderUI({
+      language <- current_language()
       cfg <- selected_config()
+      id <- input$indicator
+      references <- Map(
+        function(reference, index) localized_reference(language, id, reference, index),
+        cfg$references %||% list(), seq_along(cfg$references %||% list())
+      )
+      if (!length(references)) {
+        return(div(
+          class = "reference-empty",
+          tr(language, "no_reference")
+        ))
+      }
+
+      tagList(
+        div(class = "reference-heading", tr(language, "technical_references")),
+        lapply(references, function(reference) {
+          tags$a(
+            class = "reference-item",
+            href = reference$url,
+            target = "_blank",
+            rel = "noopener noreferrer",
+            span(class = "reference-swatch", style = paste0("--reference-color:", reference$color)),
+            span(class = "reference-name", reference$label),
+            span(class = "reference-detail", reference$detail)
+          )
+        }),
+        p(class = "reference-note", reference_note(language, id, cfg$reference_note %||% ""))
+      )
+    })
+
+    output$map_legend <- renderUI({
+      language <- current_language()
+      cfg <- selected_config()
+      id <- input$indicator
       labels <- if (is.null(cfg$breaks)) {
         format(seq(cfg$range[[1]], cfg$range[[2]], length.out = 5), trim = TRUE)
       } else {
@@ -344,7 +451,7 @@ app_server <- function(store) {
         format(c(0, finite), trim = TRUE)
       }
       tagList(
-        div(class = "legend-title", cfg$short, span(pretty_unit(cfg$unit))),
+        div(class = "legend-title", indicator_text(language, id, "short", cfg$short), span(pretty_unit(cfg$unit))),
         div(class = "legend-gradient", style = paste0("--legend:", paste(cfg$colors, collapse = ","))),
         div(class = "legend-labels", lapply(labels, span))
       )
@@ -359,13 +466,71 @@ app_server <- function(store) {
     frame_pending <- reactiveVal(FALSE)
 
     update_play_button <- function() {
+      language <- isolate(current_language())
+      is_playing <- isolate(playing())
       updateActionButton(
         session,
         "play",
-        label = if (playing()) "Pausar" else "Animar",
-        icon = icon(if (playing()) "pause" else "play")
+        label = if (is_playing) tr(language, "pause") else tr(language, "animate"),
+        icon = icon(if (is_playing) "pause" else "play")
       )
     }
+
+    observeEvent(input$language, {
+      language <- current_language()
+      selected_indicator <- isolate(input$indicator %||% store$available[[1]])
+      selected_territory <- isolate(input$territory %||% default_territory)
+
+      updateSelectInput(
+        session, "indicator",
+        choices = localized_indicator_choices(language), selected = selected_indicator
+      )
+      updateSelectizeInput(
+        session, "territory",
+        choices = localized_territory_choices(language), selected = selected_territory,
+        options = list(placeholder = tr(language, "territory_placeholder")), server = TRUE
+      )
+      updateCheckboxInput(session, "show_wind", label = tr(language, "wind_particles"))
+      updateCheckboxInput(session, "show_fires", label = tr(language, "heat_spots"))
+      updateCheckboxInput(session, "show_satellite", label = tr(language, "satellite_image"))
+      update_play_button()
+
+      session$sendCustomMessage(
+        "alertar:interface",
+        list(
+          language = map_language_code(language),
+          title = tr(language, "app_title"),
+          territoryPlaceholder = tr(language, "territory_placeholder"),
+          text = stats::setNames(
+            list(
+              tr(language, "history"), tr(language, "about"),
+              tr(language, "layer_heading"), tr(language, "local_heading"),
+              tr(language, "download_series"), tr(language, "now"),
+              paste0(
+                "CAMS / Copernicus  •  ",
+                tr(language, paste0("coverage_", store$coverage$id), default = store$coverage$label),
+                "  •  LIS / ICICT / Fiocruz"
+              )
+            ),
+            c("label-history", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-now", "label-credits")
+          ),
+          mapControls = stats::setNames(
+            list(
+              tr(language, "map_zoom_in"), tr(language, "map_zoom_out"),
+              tr(language, "map_reset_bearing"), tr(language, "map_toggle_projection")
+            ),
+            c(".maplibregl-ctrl-zoom-in", ".maplibregl-ctrl-zoom-out", ".maplibregl-ctrl-compass", ".maplibregl-ctrl-globe")
+          )
+        )
+      )
+
+      if (isTRUE(isolate(map_ready()))) {
+        session$sendCustomMessage(
+          "alertar:language",
+          list(mapId = session$ns("forecast_map"), language = map_language_code(language))
+        )
+      }
+    }, ignoreInit = FALSE)
 
     observeEvent(input$play, {
       playing(!playing())
@@ -378,7 +543,7 @@ app_server <- function(store) {
       if (identical(result$ok, FALSE)) {
         playing(FALSE)
         update_play_button()
-        showNotification("Nao foi possivel carregar o proximo quadro do mapa.", type = "error")
+        showNotification(tr(current_language(), "raster_error"), type = "error")
       }
     })
 
@@ -404,11 +569,11 @@ app_server <- function(store) {
     })
 
     observeEvent(input$open_history, {
-      showModal(historical_data_modal())
+      showModal(historical_data_modal(current_language()))
     }, ignoreInit = TRUE)
 
     observeEvent(input$open_about, {
-      showModal(about_project_modal())
+      showModal(about_project_modal(current_language()))
     }, ignoreInit = TRUE)
   }
 }

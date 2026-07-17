@@ -19,7 +19,7 @@ suppressPackageStartupMessages(library(shiny))
 options(shiny.autoreload = FALSE, shiny.maxRequestSize = 30 * 1024^2)
 
 invisible(lapply(
-  c("R/config.R", "R/data.R", "R/ui.R", "R/server.R"),
+  c("R/config.R", "R/i18n.R", "R/data.R", "R/ui.R", "R/server.R"),
   sys.source,
   envir = environment()
 ))

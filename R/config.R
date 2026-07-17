@@ -1,4 +1,12 @@
+chart_reference <- function(value, label, detail, color, url) {
+  list(value = value, label = label, detail = detail, color = color, url = url)
+}
+
 indicator_catalog <- function() {
+  who_air_url <- "https://www.who.int/teams/environment-climate-change-and-health/air-quality-and-health/health-impacts/types-of-pollutants"
+  who_uv_url <- "https://www.who.int/news-room/questions-and-answers/item/radiation-the-ultraviolet-%28uv%29-index"
+  conama_iqar_url <- "https://www.gov.br/mma/pt-br/assuntos/meio-ambiente-urbano-recursos-hidricos-qualidade-ambiental/qualidade-do-ar/indice-de-qualidade-do-ar-iqar/orientacao-tecnica-indice-de-qualidade-do-ar-jan-25.pdf"
+
   list(
     iqar = list(
       label = "Qualidade do ar", short = "IQAr", unit = "indice",
@@ -6,6 +14,13 @@ indicator_catalog <- function() {
       scale = 1, offset = 0, range = c(0, 240), digits = 0,
       colors = c("#34d399", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 40, 80, 120, 200, Inf),
+      references = list(
+        chart_reference(40, "Boa", "limite 40", "#34d399", conama_iqar_url),
+        chart_reference(80, "Moderada", "limite 80", "#facc15", conama_iqar_url),
+        chart_reference(120, "Ruim", "limite 120", "#fb923c", conama_iqar_url),
+        chart_reference(200, "Muito ruim", "limite 200", "#f43f5e", conama_iqar_url)
+      ),
+      reference_note = "Faixas de comunicação do IQAr segundo orientação técnica do CONAMA.",
       description = "Indice integrado da qualidade do ar segundo as faixas do CONAMA."
     ),
     pm25 = list(
@@ -14,6 +29,8 @@ indicator_catalog <- function() {
       scale = 1e9, offset = 0, range = c(0, 80), digits = 1,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 15, 25, 37.5, 50, 75, Inf),
+      references = list(chart_reference(15, "OMS 2021", "15 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      reference_note = "Referência OMS de curta duração. A curva mostra o passo nativo, não a média móvel de 24h.",
       description = "Material particulado fino, capaz de atingir as regioes profundas dos pulmoes."
     ),
     pm10 = list(
@@ -22,6 +39,8 @@ indicator_catalog <- function() {
       scale = 1e9, offset = 0, range = c(0, 160), digits = 1,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 45, 50, 75, 100, 150, Inf),
+      references = list(chart_reference(45, "OMS 2021", "45 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      reference_note = "Referência OMS de curta duração. A curva mostra o passo nativo, não a média móvel de 24h.",
       description = "Particulas inalaveis associadas a poeira, emissoes, industria e queimadas."
     ),
     o3 = list(
@@ -30,6 +49,8 @@ indicator_catalog <- function() {
       scale = 1e9, offset = 0, range = c(0, 180), digits = 1,
       colors = c("#0ea5e9", "#22d3ee", "#a3e635", "#facc15", "#fb923c", "#f43f5e", "#a855f7", "#701a75"),
       breaks = c(-Inf, 20, 40, 60, 80, 100, 120, 160, Inf),
+      references = list(chart_reference(100, "OMS 2021", "100 µg/m³ · máxima média 8h", "#ffd166", who_air_url)),
+      reference_note = "Referência OMS para a máxima média de 8h. A curva mostra previsões a cada 3h.",
       description = "Ozonio troposferico, poluente secundario irritante para as vias respiratorias."
     ),
     co = list(
@@ -38,6 +59,8 @@ indicator_catalog <- function() {
       scale = 1, offset = 0, range = c(0, 15), digits = 2,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 1, 4, 9, 11, 13, Inf),
+      references = list(chart_reference(4 * 24.45 / 28.0101, "OMS 2021", "4 mg/m³ ≈ 3,5 ppm · média 24h", "#ffd166", who_air_url)),
+      reference_note = "Referência OMS de 4 mg/m³ em 24h, convertida aproximadamente para ppm a 25 °C.",
       description = "Gas gerado por combustao incompleta, especialmente veiculos, industria e queimadas."
     ),
     no2 = list(
@@ -46,6 +69,8 @@ indicator_catalog <- function() {
       scale = 1e9, offset = 0, range = c(0, 220), digits = 1,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 10, 25, 50, 120, 200, Inf),
+      references = list(chart_reference(25, "OMS 2021", "25 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      reference_note = "Referência OMS de curta duração. A curva mostra previsões a cada 3h, não a média móvel de 24h.",
       description = "Gas reativo ligado principalmente a emissoes veiculares e processos industriais."
     ),
     so2 = list(
@@ -54,6 +79,8 @@ indicator_catalog <- function() {
       scale = 1e9, offset = 0, range = c(0, 140), digits = 1,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 5, 20, 40, 50, 125, Inf),
+      references = list(chart_reference(40, "OMS 2021", "40 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      reference_note = "Referência OMS de curta duração. A curva mostra previsões a cada 3h, não a média móvel de 24h.",
       description = "Gas irritante associado a combustiveis com enxofre e a processos industriais."
     ),
     temp = list(
@@ -71,6 +98,11 @@ indicator_catalog <- function() {
       scale = 40, offset = 0, range = c(0, 14), digits = 1,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#ef4444", "#a855f7"),
       breaks = c(-Inf, 3, 6, 8, 11, 14, Inf),
+      references = list(
+        chart_reference(3, "Proteção solar", "recomendada a partir de IUV 3", "#facc15", who_uv_url),
+        chart_reference(8, "Exposição muito alta", "evitar o sol ao meio-dia", "#fb923c", who_uv_url)
+      ),
+      reference_note = "Níveis de ação recomendados pela OMS para proteção contra radiação ultravioleta.",
       description = "Intensidade da radiacao ultravioleta e risco associado a exposicao solar."
     ),
     wind_speed = list(

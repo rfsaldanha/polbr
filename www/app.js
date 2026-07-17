@@ -283,11 +283,35 @@
     }
   }
 
+  function updateInterface(message) {
+    document.documentElement.lang = message.language || "pt";
+    if (message.title) document.title = message.title;
+
+    for (const [id, value] of Object.entries(message.text || {})) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    }
+
+    for (const [selector, value] of Object.entries(message.mapControls || {})) {
+      for (const element of document.querySelectorAll(selector)) {
+        element.title = value;
+        element.setAttribute("aria-label", value);
+      }
+    }
+
+    const territory = document.getElementById("territory");
+    if (territory && territory.selectize && message.territoryPlaceholder) {
+      territory.selectize.settings.placeholder = message.territoryPlaceholder;
+      territory.selectize.updatePlaceholder();
+    }
+  }
+
   function registerHandlers() {
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);
+    Shiny.addCustomMessageHandler("alertar:interface", updateInterface);
     Shiny.addCustomMessageHandler("alertar:toggle-details", function () {
       const body = document.getElementById("details-body");
       if (body) body.hidden = !body.hidden;
