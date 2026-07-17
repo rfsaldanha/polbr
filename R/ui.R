@@ -141,7 +141,7 @@ app_ui <- function(store) {
       tags$aside(
         class = "variable-panel glass-panel",
         div(class = "panel-heading", span(id = "label-layer-heading", tr("pt", "layer_heading")), span(class = "live-dot")),
-        selectInput("indicator", NULL, choices = indicator_choices, selected = names(indicator_choices)[[1]]),
+        selectInput("indicator", NULL, choices = indicator_choices, selected = store$default_indicator),
         uiOutput("indicator_summary"),
         div(class = "divider"),
         div(
@@ -154,14 +154,26 @@ app_ui <- function(store) {
 
       tags$aside(
         class = "place-panel glass-panel",
-        div(class = "panel-heading", span(id = "label-local-heading", tr("pt", "local_heading")), actionButton("toggle_details", "−", class = "icon-button")),
-        selectizeInput("territory", NULL, choices = NULL, options = list(placeholder = tr("pt", "territory_placeholder"))),
         div(
-          id = "details-body",
-          uiOutput("local_reading"),
-          plotOutput("forecast_spark", height = "190px"),
-          uiOutput("forecast_references", container = div, class = "reference-guide"),
-          downloadButton("download_series", span(id = "label-download", tr("pt", "download_series")), class = "download-link")
+          class = "panel-heading",
+          span(id = "label-local-heading", tr("pt", "local_heading")),
+          actionButton(
+            "toggle_details", "−", class = "icon-button",
+            title = tr("pt", "minimize_panel"),
+            `aria-label` = tr("pt", "minimize_panel"),
+            `aria-expanded` = "true"
+          )
+        ),
+        div(
+          id = "place-panel-body",
+          selectizeInput("territory", NULL, choices = NULL, options = list(placeholder = tr("pt", "territory_placeholder"))),
+          div(
+            id = "details-body",
+            uiOutput("local_reading"),
+            plotOutput("forecast_spark", height = "190px"),
+            uiOutput("forecast_references", container = div, class = "reference-guide"),
+            downloadButton("download_series", span(id = "label-download", tr("pt", "download_series")), class = "download-link")
+          )
         )
       ),
 

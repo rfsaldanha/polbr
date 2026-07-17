@@ -5,6 +5,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   })
   available <- names(rasters)[!vapply(rasters, is.null, logical(1))]
   if (!length(available)) stop("Nenhum raster de previsao foi encontrado em ", data_dir)
+  default_indicator <- if ("pm25" %in% available) "pm25" else available[[1]]
 
   raster_horizons <- lapply(names(catalog), function(id) {
     x <- rasters[[id]]
@@ -204,6 +205,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     catalog = catalog,
     coverage = coverage,
     available = available,
+    default_indicator = default_indicator,
     rasters = rasters,
     territories = territories,
     fires = fires,

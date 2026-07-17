@@ -308,6 +308,34 @@
       territory.selectize.settings.placeholder = message.territoryPlaceholder;
       territory.selectize.updatePlaceholder();
     }
+
+    const detailsButton = document.getElementById("toggle_details");
+    if (detailsButton && message.detailsToggle) {
+      detailsButton.dataset.minimizeLabel = message.detailsToggle.minimize;
+      detailsButton.dataset.restoreLabel = message.detailsToggle.restore;
+      const minimized = detailsButton.getAttribute("aria-expanded") === "false";
+      const label = minimized ? message.detailsToggle.restore : message.detailsToggle.minimize;
+      detailsButton.title = label;
+      detailsButton.setAttribute("aria-label", label);
+    }
+  }
+
+  function toggleDetailsPanel() {
+    const body = document.getElementById("place-panel-body");
+    const button = document.getElementById("toggle_details");
+    if (!body || !button) return;
+
+    const minimized = !body.hidden;
+    body.hidden = minimized;
+    button.textContent = minimized ? "+" : "−";
+    button.setAttribute("aria-expanded", String(!minimized));
+    button.closest(".place-panel")?.classList.toggle("is-minimized", minimized);
+
+    const label = minimized
+      ? (button.dataset.restoreLabel || "Restaurar painel")
+      : (button.dataset.minimizeLabel || "Minimizar painel");
+    button.title = label;
+    button.setAttribute("aria-label", label);
   }
 
   function registerHandlers() {
@@ -316,10 +344,7 @@
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);
     Shiny.addCustomMessageHandler("alertar:interface", updateInterface);
-    Shiny.addCustomMessageHandler("alertar:toggle-details", function () {
-      const body = document.getElementById("details-body");
-      if (body) body.hidden = !body.hidden;
-    });
+    Shiny.addCustomMessageHandler("alertar:toggle-details", toggleDetailsPanel);
   }
 
   if (window.Shiny) {

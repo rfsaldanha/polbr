@@ -36,7 +36,7 @@ app_server <- function(store) {
     }, once = TRUE)
 
     output$forecast_map <- mapgl::renderMaplibre({
-      initial_id <- isolate(input$indicator %||% store$available[[1]])
+      initial_id <- isolate(input$indicator %||% store$default_indicator)
       initial_horizon <- isolate(input$horizon %||% 12)
       initial_image <- store$raster_image(initial_id, initial_horizon)
 
@@ -199,9 +199,8 @@ app_server <- function(store) {
 
     observe({
       req(map_ready())
-      req(input$indicator)
       if (is.null(store$fires) || !nrow(store$fires)) return()
-      visible <- isTRUE(input$show_fires) && input$indicator %in% c("pm25", "pm10", "aerosol")
+      visible <- isTRUE(input$show_fires)
       mapgl::maplibre_proxy("forecast_map", session) |>
         mapgl::set_layout_property("fires", "visibility", if (visible) "visible" else "none")
     })
@@ -247,7 +246,7 @@ app_server <- function(store) {
       mapgl::maplibre_proxy("forecast_map", session) |>
         mapgl::set_layout_property("satellite", "visibility", if (isTRUE(input$show_satellite)) "visible" else "none")
       if (!is.null(store$fires) && nrow(store$fires)) {
-        visible <- isTRUE(input$show_fires) && input$indicator %in% c("pm25", "pm10", "aerosol")
+        visible <- isTRUE(input$show_fires)
         mapgl::maplibre_proxy("forecast_map", session) |>
           mapgl::set_layout_property("fires", "visibility", if (visible) "visible" else "none")
       }
@@ -478,7 +477,7 @@ app_server <- function(store) {
 
     observeEvent(input$language, {
       language <- current_language()
-      selected_indicator <- isolate(input$indicator %||% store$available[[1]])
+      selected_indicator <- isolate(input$indicator %||% store$default_indicator)
       selected_territory <- isolate(input$territory %||% default_territory)
 
       updateSelectInput(
@@ -501,6 +500,10 @@ app_server <- function(store) {
           language = map_language_code(language),
           title = tr(language, "app_title"),
           territoryPlaceholder = tr(language, "territory_placeholder"),
+          detailsToggle = list(
+            minimize = tr(language, "minimize_panel"),
+            restore = tr(language, "restore_panel")
+          ),
           text = stats::setNames(
             list(
               tr(language, "history"), tr(language, "about"),
@@ -566,7 +569,7 @@ app_server <- function(store) {
 
     observeEvent(input$toggle_details, {
       session$sendCustomMessage("alertar:toggle-details", list())
-    })
+    }, ignoreInit = TRUE)
 
     observeEvent(input$open_history, {
       showModal(historical_data_modal(current_language()))

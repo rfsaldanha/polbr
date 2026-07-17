@@ -48,7 +48,11 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
 .form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
 
 .place-panel { top: 22px; right: 24px; width: 342px; padding: 16px; border-radius: 16px; }
+.place-panel.is-minimized { padding-bottom: 10px; }
+.place-panel.is-minimized .panel-heading { margin-bottom: 0; }
+#place-panel-body[hidden] { display: none !important; }
 .icon-button { min-width: 24px; padding: 0 6px; color: var(--muted); background: transparent; border: 0; }
+.icon-button:hover, .icon-button:focus { color: var(--accent); background: rgba(53,212,180,.08); }
 .selectize-control { margin-bottom: 11px; }
 .selectize-dropdown, .selectize-dropdown-content { color: #dbe8ef; background: #0b1922; border-color: #29404c; }
 .selectize-dropdown .active { color: white; background: #153a3b; }
