@@ -35,26 +35,100 @@ historical_data_modal <- function(language = "pt") {
   )
 }
 
+about_source_card <- function(icon_name, title, description, links) {
+  link_tags <- lapply(seq_along(links), function(index) {
+    tags$a(
+      icon("arrow-up-right-from-square"), names(links)[[index]],
+      href = unname(links[[index]]), target = "_blank", rel = "noopener noreferrer"
+    )
+  })
+  div(
+    class = "about-source-card",
+    div(class = "about-source-title", icon(icon_name), tags$strong(title)),
+    p(description),
+    div(class = "about-source-links", link_tags)
+  )
+}
+
 about_project_modal <- function(language = "pt") {
+  source_link_label <- tr(language, "about_source_link")
   modalDialog(
     title = tagList(icon("info-circle"), tr(language, "about_title")),
     div(
       class = "about-grid",
       tags$section(
-        h3(tr(language, "about_project_heading")),
-        p(tr(language, "about_project_p1")),
-        p(tr(language, "about_project_p2"))
+        class = "about-hero",
+        div(
+          class = "about-hero-copy",
+          h3(tr(language, "about_project_heading")),
+          p(tr(language, "about_project_p1")),
+          p(tr(language, "about_project_p2"))
+        ),
+        tags$img(
+          src = "pin_obs_horizontal_dark.png",
+          alt = "Observatório de Clima e Saúde — ICICT — Fiocruz"
+        )
       ),
       tags$section(
+        class = "about-methods",
         h3(tr(language, "about_methods_heading")),
-        p(tr(language, "about_methods_p1")),
-        p(tr(language, "about_methods_p2")),
-        p(tr(language, "about_methods_p3")),
-        p(tr(language, "about_methods_p4"))
+        div(
+          class = "about-method-columns",
+          div(
+            p(tr(language, "about_methods_p1")),
+            p(tr(language, "about_methods_p2"))
+          ),
+          div(
+            p(tr(language, "about_methods_p3")),
+            p(tr(language, "about_methods_p4"))
+          )
+        )
       ),
       tags$section(
-        h3(tr(language, "about_coverage_heading")),
-        p(tr(language, "about_coverage_p1"))
+        class = "about-sources",
+        h3(tr(language, "about_sources_heading")),
+        p(class = "about-sources-intro", tr(language, "about_sources_intro")),
+        div(
+          class = "about-source-grid",
+          about_source_card(
+            "cloud-sun", "CAMS / ECMWF", tr(language, "about_source_cams"),
+            stats::setNames("https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts?tab=overview", source_link_label)
+          ),
+          about_source_card(
+            "satellite", "NOAA GOES-East / NASA GIBS", tr(language, "about_source_goes"),
+            stats::setNames("https://www.ncei.noaa.gov/products/goes-terrestrial-weather-abi-glm", source_link_label)
+          ),
+          about_source_card(
+            "cloud-rain", "GPM IMERG / NASA", tr(language, "about_source_gpm"),
+            stats::setNames("https://gpm.nasa.gov/data/imerg", source_link_label)
+          ),
+          about_source_card(
+            "bolt", "GLM / NOAA", tr(language, "about_source_glm"),
+            stats::setNames("https://www.nesdis.noaa.gov/our-satellites/currently-flying/goes-east-west/geostationary-lightning-mapper-glm", source_link_label)
+          ),
+          about_source_card(
+            "fire", "BDQueimadas / INPE", tr(language, "about_source_fires"),
+            stats::setNames("https://terrabrasilis.dpi.inpe.br/queimadas/portal/", source_link_label)
+          ),
+          about_source_card(
+            "draw-polygon", "IBGE / geobr", tr(language, "about_source_territories"),
+            stats::setNames("https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774-malhas.html", source_link_label)
+          ),
+          about_source_card(
+            "map", "CARTO / OpenStreetMap", tr(language, "about_source_basemap"),
+            c(
+              "CARTO" = "https://carto.com/attributions",
+              "OpenStreetMap" = "https://www.openstreetmap.org/copyright"
+            )
+          ),
+          about_source_card(
+            "book-medical", "OMS / CONAMA", tr(language, "about_source_references"),
+            c(
+              "OMS / WHO" = "https://www.who.int/teams/environment-climate-change-and-health/air-quality-and-health/health-impacts/types-of-pollutants",
+              "CONAMA" = "https://www.gov.br/mma/pt-br/assuntos/meio-ambiente-urbano-recursos-hidricos-qualidade-ambiental/qualidade-do-ar/indice-de-qualidade-do-ar-iqar/orientacao-tecnica-indice-de-qualidade-do-ar-jan-25.pdf"
+            )
+          )
+        )
       ),
       tags$section(
         class = "about-cams-credit",
@@ -67,6 +141,12 @@ about_project_modal <- function(language = "pt") {
         )
       ),
       tags$section(
+        class = "about-coverage",
+        h3(tr(language, "about_coverage_heading")),
+        p(tr(language, "about_coverage_p1"))
+      ),
+      tags$section(
+        class = "about-code",
         h3(tr(language, "about_code_heading")),
         p(tr(language, "about_code_p1")),
         tags$a(
@@ -77,18 +157,12 @@ about_project_modal <- function(language = "pt") {
           icon("github"), paste0(" ", tr(language, "shiny_application")),
           href = "https://github.com/rfsaldanha/polbr", target = "_blank", rel = "noopener noreferrer"
         )
-      ),
-      tags$section(
-        class = "about-logo-card",
-        tags$img(
-          src = "pin_obs_horizontal_dark.png",
-          alt = "Observatório de Clima e Saúde — ICICT — Fiocruz"
-        )
       )
     ),
     footer = modalButton(tr(language, "close")),
     easyClose = TRUE,
-    size = "l"
+    size = "xl",
+    class = "about-modal-body"
   )
 }
 
