@@ -256,7 +256,9 @@ app_server <- function(store, glm_store = NULL) {
     displayed_horizon <- reactiveVal(12)
     pending_raster <- reactiveVal(NULL)
     lightning_snapshot <- reactiveVal(NULL)
+    lightning_loading <- reactiveVal(FALSE)
     raster_request_sequence <- 0L
+    lightning_request_sequence <- 0L
 
     session$onFlushed(function() {
       language <- isolate(current_language())
@@ -530,7 +532,11 @@ app_server <- function(store, glm_store = NULL) {
       lightning_refresh()
       req(map_ready())
       active <- isTRUE(input$show_lightning)
+      lightning_request_sequence <<- lightning_request_sequence + 1L
+      request_sequence <- lightning_request_sequence
       if (!active || is.null(glm_store)) {
+        lightning_loading(FALSE)
+        lightning_snapshot(NULL)
         session$sendCustomMessage(
           "alertar:lightning",
           list(mapId = session$ns("forecast_map"), active = FALSE)
@@ -538,23 +544,33 @@ app_server <- function(store, glm_store = NULL) {
         return()
       }
 
-      snapshot <- glm_store$refresh()
-      lightning_snapshot(snapshot)
-      flashes <- snapshot$flashes
-      session$sendCustomMessage(
-        "alertar:lightning",
-        list(
-          mapId = session$ns("forecast_map"),
-          active = TRUE,
-          windowSeconds = 5 * 60,
-          flashes = list(
-            lon = unname(flashes$lon),
-            lat = unname(flashes$lat),
-            energy = unname(flashes$energy),
-            observedAt = unname(flashes$observed_at)
+      lightning_loading(TRUE)
+      later::later(function() {
+        if (session$isClosed() || request_sequence != lightning_request_sequence) return(invisible(NULL))
+        if (!isTRUE(isolate(input$show_lightning))) {
+          lightning_loading(FALSE)
+          return(invisible(NULL))
+        }
+        on.exit(lightning_loading(FALSE), add = TRUE)
+
+        snapshot <- glm_store$refresh()
+        lightning_snapshot(snapshot)
+        flashes <- snapshot$flashes
+        session$sendCustomMessage(
+          "alertar:lightning",
+          list(
+            mapId = session$ns("forecast_map"),
+            active = TRUE,
+            windowSeconds = 5 * 60,
+            flashes = list(
+              lon = unname(flashes$lon),
+              lat = unname(flashes$lat),
+              energy = unname(flashes$energy),
+              observedAt = unname(flashes$observed_at)
+            )
           )
         )
-      )
+      }, delay = .05)
     })
 
     observe({
@@ -1172,8 +1188,12 @@ app_server <- function(store, glm_store = NULL) {
       language <- current_language()
       timezone <- current_timezone()
       snapshot <- lightning_snapshot()
-      if (is.null(snapshot)) {
-        return(div(class = "lightning-status is-loading", tr(language, "lightning_loading")))
+      if (isTRUE(lightning_loading()) || is.null(snapshot)) {
+        return(div(
+          class = "lightning-status is-loading", role = "status", `aria-live` = "polite",
+          span(class = "lightning-loading-spinner", `aria-hidden` = "true"),
+          span(tr(language, "lightning_loading"))
+        ))
       }
       if (!nrow(snapshot$flashes) && !is.null(snapshot$error)) {
         return(div(class = "lightning-status is-error", tr(language, "lightning_unavailable")))
