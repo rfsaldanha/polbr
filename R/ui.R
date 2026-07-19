@@ -761,56 +761,124 @@ app_ui <- function(store) {
 
       tags$aside(
         class = "variable-panel glass-panel",
-        div(class = "panel-heading", span(id = "label-layer-heading", tr("pt", "layer_heading"))),
-        selectInput("indicator", NULL, choices = indicator_choices, selected = store$default_indicator),
-        uiOutput("indicator_summary"),
         div(
-          class = "forecast-transparency-control",
-          sliderInput(
-            "forecast_transparency", tr("pt", "forecast_transparency"),
-            min = 0, max = 100, value = 18, step = 5, post = "%", ticks = FALSE
+          class = "panel-heading layer-panel-heading",
+          icon("layer-group", class = "layer-heading-icon"),
+          span(id = "label-layer-heading", tr("pt", "layer_heading"))
+        ),
+        tags$details(
+          class = "layer-group forecast-layer-group",
+          open = NA,
+          tags$summary(
+            div(
+              class = "layer-group-title",
+              span(class = "layer-group-icon", icon("cloud-sun")),
+              span(id = "label-forecast-section", tr("pt", "forecast_section"))
+            ),
+            span(id = "label-forecast-badge", class = "layer-group-badge forecast-badge", tr("pt", "forecast_badge")),
+            icon("chevron-down", class = "layer-group-chevron")
+          ),
+          div(
+            class = "layer-group-body",
+            p(id = "label-forecast-note", class = "layer-group-note", tr("pt", "forecast_section_note")),
+            tags$label(
+              `for` = "indicator", id = "label-forecast-variable", class = "layer-field-label",
+              tr("pt", "forecast_variable")
+            ),
+            selectInput("indicator", NULL, choices = indicator_choices, selected = store$default_indicator),
+            uiOutput("indicator_summary"),
+            div(
+              class = "forecast-transparency-control",
+              sliderInput(
+                "forecast_transparency", tr("pt", "forecast_transparency"),
+                min = 0, max = 100, value = 18, step = 5, post = "%", ticks = FALSE
+              )
+            ),
+            div(
+              class = "layer-option forecast-layer-option",
+              checkboxInput("show_wind", tr("pt", "wind_particles"), value = store$wind_available),
+              div(
+                class = "layer-option-meta",
+                span(id = "label-wind-detail", tr("pt", "wind_detail"))
+              )
+            )
           )
         ),
-        div(class = "divider"),
-        div(
-          class = "layer-switches forecast-overlays",
-          checkboxInput("show_wind", tr("pt", "wind_particles"), value = store$wind_available),
-          checkboxInput("show_fires", tr("pt", "heat_spots"), value = TRUE)
-        ),
-        div(class = "divider weather-divider"),
-        div(
-          class = "weather-layer-control",
-          checkboxInput("show_lightning", tr("pt", "lightning_flashes"), value = FALSE),
-          conditionalPanel(
-            condition = "input.show_lightning === true",
-            uiOutput("lightning_status", class = "lightning-status-output")
-          ),
-          checkboxInput("show_weather", tr("pt", "weather_imagery"), value = FALSE),
-          conditionalPanel(
-            condition = "input.show_weather === true",
+        tags$details(
+          class = "layer-group recent-layer-group",
+          open = NA,
+          tags$summary(
             div(
-              class = "weather-source-card",
-              div(class = "weather-card-kicker", icon("satellite-dish"), span(id = "label-weather-heading", tr("pt", "weather_heading"))),
-              tags$label(`for` = "weather_source", id = "label-weather-source", tr("pt", "weather_source")),
-              selectInput(
-                "weather_source", NULL,
-                choices = stats::setNames(default_weather_source, tr("pt", weather_catalog[[default_weather_source]]$label_key)),
-                selected = default_weather_source
-              ),
-              tags$label(`for` = "weather_product", id = "label-weather-product", tr("pt", "weather_product")),
-              selectInput(
-                "weather_product", NULL,
-                choices = stats::setNames(
-                  names(weather_catalog[[default_weather_source]]$products),
-                  vapply(
-                    weather_catalog[[default_weather_source]]$products,
-                    function(product) tr("pt", product$label_key),
-                    character(1)
-                  )
+              class = "layer-group-title",
+              span(class = "layer-group-icon", icon("satellite-dish")),
+              span(id = "label-recent-section", tr("pt", "recent_section"))
+            ),
+            span(id = "label-recent-badge", class = "layer-group-badge recent-badge", tr("pt", "recent_badge")),
+            icon("chevron-down", class = "layer-group-chevron")
+          ),
+          div(
+            class = "layer-group-body",
+            p(id = "label-recent-note", class = "layer-group-note", tr("pt", "recent_section_note")),
+            div(
+              class = "weather-layer-control recent-layer-options",
+              div(
+                class = "layer-option lightning-layer-option",
+                checkboxInput("show_lightning", tr("pt", "lightning_flashes"), value = FALSE),
+                div(
+                  class = "layer-option-meta",
+                  span(id = "label-lightning-detail", tr("pt", "lightning_detail")),
+                  span(id = "label-live-badge", class = "freshness-badge live-badge", tr("pt", "live_badge"))
                 ),
-                selected = default_weather_product
+                conditionalPanel(
+                  condition = "input.show_lightning === true",
+                  uiOutput("lightning_status", class = "lightning-status-output")
+                )
               ),
-              uiOutput("weather_status", class = "weather-status-output")
+              div(
+                class = "layer-option fire-layer-option",
+                checkboxInput("show_fires", tr("pt", "heat_spots"), value = TRUE),
+                div(
+                  class = "layer-option-meta",
+                  span(id = "label-fires-detail", tr("pt", "heat_spots_detail")),
+                  span(id = "label-near-live-fires", class = "freshness-badge near-live-badge", tr("pt", "near_live_badge"))
+                )
+              ),
+              div(
+                class = "layer-option weather-layer-option",
+                checkboxInput("show_weather", tr("pt", "weather_imagery"), value = FALSE),
+                div(
+                  class = "layer-option-meta",
+                  span(id = "label-weather-detail", tr("pt", "weather_detail")),
+                  span(id = "label-near-live-weather", class = "freshness-badge near-live-badge", tr("pt", "near_live_badge"))
+                ),
+                conditionalPanel(
+                  condition = "input.show_weather === true",
+                  div(
+                    class = "weather-source-card",
+                    div(class = "weather-card-kicker", icon("sliders"), span(id = "label-weather-heading", tr("pt", "weather_heading"))),
+                    tags$label(`for` = "weather_source", id = "label-weather-source", tr("pt", "weather_source")),
+                    selectInput(
+                      "weather_source", NULL,
+                      choices = stats::setNames(default_weather_source, tr("pt", weather_catalog[[default_weather_source]]$label_key)),
+                      selected = default_weather_source
+                    ),
+                    tags$label(`for` = "weather_product", id = "label-weather-product", tr("pt", "weather_product")),
+                    selectInput(
+                      "weather_product", NULL,
+                      choices = stats::setNames(
+                        names(weather_catalog[[default_weather_source]]$products),
+                        vapply(
+                          weather_catalog[[default_weather_source]]$products,
+                          function(product) tr("pt", product$label_key),
+                          character(1)
+                        )
+                      ),
+                      selected = default_weather_product
+                    ),
+                    uiOutput("weather_status", class = "weather-status-output")
+                  )
+                )
+              )
             )
           )
         )

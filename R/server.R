@@ -1148,11 +1148,22 @@ app_server <- function(store, glm_store = NULL) {
               tr(language, "history"), tr(language, "reports"), tr(language, "about"),
               tr(language, "layer_heading"), tr(language, "local_heading"),
               tr(language, "download_series"), tr(language, "forecast_horizon"),
-              tr(language, "weather_heading"), tr(language, "weather_source"), tr(language, "weather_product")
+              tr(language, "weather_heading"), tr(language, "weather_source"), tr(language, "weather_product"),
+              tr(language, "forecast_section"), tr(language, "forecast_badge"),
+              tr(language, "forecast_section_note"), tr(language, "forecast_variable"),
+              tr(language, "wind_detail"), tr(language, "recent_section"),
+              tr(language, "recent_badge"), tr(language, "recent_section_note"),
+              tr(language, "lightning_detail"), tr(language, "live_badge"),
+              tr(language, "heat_spots_detail"), tr(language, "near_live_badge"),
+              tr(language, "weather_detail"), tr(language, "near_live_badge")
             ),
             c(
               "label-history", "label-reports", "label-about", "label-layer-heading", "label-local-heading",
-              "label-download", "label-forecast-horizon", "label-weather-heading", "label-weather-source", "label-weather-product"
+              "label-download", "label-forecast-horizon", "label-weather-heading", "label-weather-source", "label-weather-product",
+              "label-forecast-section", "label-forecast-badge", "label-forecast-note", "label-forecast-variable",
+              "label-wind-detail", "label-recent-section", "label-recent-badge", "label-recent-note",
+              "label-lightning-detail", "label-live-badge", "label-fires-detail", "label-near-live-fires",
+              "label-weather-detail", "label-near-live-weather"
             )
           ),
           mapControls = stats::setNames(
