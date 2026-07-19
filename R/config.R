@@ -138,6 +138,64 @@ indicator_catalog <- function() {
   )
 }
 
+weather_observation_catalog <- function() {
+  list(
+    goes_east = list(
+      label_key = "weather_source_goes_east",
+      provider = "NASA GIBS · NOAA GOES-East",
+      refresh_minutes = 10L,
+      maxzoom = 7L,
+      tile_matrix_set = "GoogleMapsCompatible_Level7",
+      products = list(
+        geocolor = list(
+          label_key = "weather_product_geocolor",
+          layer = "GOES-East_ABI_GeoColor"
+        ),
+        infrared = list(
+          label_key = "weather_product_infrared",
+          layer = "GOES-East_ABI_Band13_Clean_Infrared",
+          tile_matrix_set = "GoogleMapsCompatible_Level6",
+          maxzoom = 6L
+        ),
+        air_mass = list(
+          label_key = "weather_product_air_mass",
+          layer = "GOES-East_ABI_Air_Mass",
+          tile_matrix_set = "GoogleMapsCompatible_Level6",
+          maxzoom = 6L
+        ),
+        dust = list(
+          label_key = "weather_product_dust",
+          layer = "GOES-East_ABI_Dust"
+        ),
+        fire_temperature = list(
+          label_key = "weather_product_fire_temperature",
+          layer = "GOES-East_ABI_FireTemp"
+        ),
+        visible = list(
+          label_key = "weather_product_visible",
+          layer = "GOES-East_ABI_Band2_Red_Visible_1km"
+        )
+      )
+    )
+  )
+}
+
+weather_observation_tile_url <- function(source, product) {
+  tile_matrix_set <- if (!is.null(product$tile_matrix_set)) {
+    product$tile_matrix_set
+  } else {
+    source$tile_matrix_set
+  }
+  sprintf(
+    paste0(
+      "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/%s/",
+      "default/default/%s/{z}/{y}/{x}.png"
+    ),
+    product$layer,
+    tile_matrix_set
+  )
+}
+
 coverage_config <- function(id = Sys.getenv("ALERTAR_COVERAGE", "brazil")) {
   map_language <- Sys.getenv("ALERTAR_MAP_LANGUAGE", "pt")
   coverages <- list(

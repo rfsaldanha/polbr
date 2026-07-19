@@ -48,6 +48,14 @@ Para uma base multinacional e multiterritorial, use `territories.rds` (objeto `s
 
 Os rasters presentes determinam as camadas exibidas. O banco `cams_forecast.duckdb` habilita leituras e downloads territoriais; novas tabelas podem usar `territory_id`, enquanto as tabelas municipais legadas continuam compativeis. Arquivos `wind_1.json` a `wind_121.json` habilitam a animacao de vento.
 
+O controle **Imagens meteorológicas** oferece observações em tempo quase real
+do GOES-East, reprojetadas para Web Mercator e distribuídas como tiles pelo
+NASA GIBS. A interface separa fonte e produto para aceitar novos provedores sem
+alterar a estrutura do painel. Nesta primeira versão estão disponíveis cores
+naturais, infravermelho térmico, massas de ar, poeira, temperatura de incêndios
+e canal visível. A camada exige acesso à internet e é atualizada a cada dez
+minutos; o horário efetivamente servido pelo provedor aparece no fuso escolhido.
+
 A área de relatórios compara a unidade selecionada com unidades do mesmo tipo no
 estado e no país. Os rankings, horas acima da referência e horas por faixa são
 calculados no DuckDB sem formar médias espaciais estaduais ou nacionais. O
@@ -57,7 +65,7 @@ autocontido, mantendo essas interações.
 
 ## Arquitetura
 
-- `R/config.R`: catalogo, unidades, escalas e paletas.
+- `R/config.R`: catalogos de indicadores, observações, unidades, escalas e paletas.
 - `R/data.R`: acesso lazy aos NetCDF, cache de PNGs e consultas DuckDB parametrizadas.
 - `R/ui.R`: interface responsiva em tela cheia.
 - `R/server.R`: reatividade, proxy MapLibre, timeline e downloads.

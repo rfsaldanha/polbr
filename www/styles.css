@@ -38,7 +38,7 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
 .language-control select { width: 48px; }
 .timezone-control select { width: 58px; }
 
-.variable-panel { top: 132px; left: 24px; width: 250px; padding: 16px; border-radius: 16px; }
+.variable-panel { top: 132px; left: 24px; width: 250px; max-height: calc(100dvh - 270px); padding: 16px; overflow-y: auto; overscroll-behavior: contain; border-radius: 16px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .variable-panel .form-group, .place-panel .form-group { margin: 0; }
 .variable-panel select, .place-panel .selectize-input { color: var(--ink) !important; background: rgba(3,10,15,.72) !important; border: 1px solid var(--line) !important; border-radius: 10px !important; box-shadow: none !important; }
@@ -51,6 +51,22 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
 .layer-switches label { color: #bdcbd4; font-size: 12px; }
 .form-check-input { background-color: #10212c; border-color: #31505e; }
 .form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
+.weather-divider { margin-top: 12px; }
+.weather-layer-control > .form-group { margin: 0; }
+.weather-layer-control > .form-group .form-check { min-height: 0; margin: 8px 0 3px; }
+.weather-layer-control > .form-group label { color: #d4e2e8; font-size: 12px; font-weight: 600; }
+.weather-source-card { margin-top: 11px; padding: 11px; background: rgba(3,10,15,.58); border: 1px solid rgba(53,212,180,.2); border-radius: 11px; }
+.weather-card-kicker { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; color: var(--accent); font: 700 8px/1.2 "Space Mono"; letter-spacing: .1em; }
+.weather-card-kicker .svg-inline--fa { font-size: 10px; }
+.weather-source-card > label { display: block; margin: 8px 0 4px; color: #849aa6; font: 700 7px/1.2 "Space Mono"; letter-spacing: .08em; text-transform: uppercase; }
+.weather-source-card .form-group { margin: 0 0 7px; }
+.weather-source-card select { min-height: 34px; padding-block: 5px; font-size: 10px; line-height: 1.2; }
+.weather-status-output { display: block; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+.weather-status { display: grid; grid-template-columns: 7px minmax(0, 1fr); align-items: start; gap: 7px; }
+.weather-live-dot { width: 6px; height: 6px; margin-top: 3px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 9px rgba(53,212,180,.65); animation: pulse 2.2s ease-in-out infinite; }
+.weather-status strong, .weather-status small { display: block; }
+.weather-status strong { color: #cbd9e0; font: 700 8px/1.35 "Space Mono"; }
+.weather-status small { margin-top: 3px; color: #78909d; font: 7px/1.4 "Space Mono"; }
 
 .place-panel { top: 22px; right: 24px; width: 342px; padding: 16px; border-radius: 16px; }
 .place-panel.is-minimized { padding-bottom: 10px; }
@@ -281,7 +297,7 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
 @media (max-width: 800px) {
   .brand-panel { top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); }
   .brand-logo { width: 145px; }
-  .variable-panel { top: auto; left: 12px; bottom: 126px; width: 205px; padding: 12px; }
+  .variable-panel { top: auto; left: 12px; bottom: 126px; width: 205px; max-height: calc(100dvh - 260px); padding: 12px; }
   .variable-panel p, .source-label, .layer-switches { display: none; }
   .divider { display: none; }
   .place-panel { top: calc(12px + env(safe-area-inset-top)); right: 12px; width: 215px; max-height: calc(100dvh - 145px); overflow-y: auto; overscroll-behavior: contain; }
@@ -313,7 +329,7 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
   .timezone-control select { width: 64px; }
   .place-panel { top: calc(112px + env(safe-area-inset-top)); left: 12px; right: 12px; width: auto; max-height: calc(100dvh - 245px); }
   .place-panel .selectize-input, .selectize-dropdown { font-size: 16px !important; }
-  .variable-panel { bottom: calc(130px + env(safe-area-inset-bottom)); width: calc(100% - 24px); }
+  .variable-panel { bottom: calc(130px + env(safe-area-inset-bottom)); width: calc(100% - 24px); max-height: calc(100dvh - 280px); }
   .variable-panel select { min-height: 40px; font-size: 16px; }
   .timeline-panel { padding: 11px 12px 14px; }
   .timeline-meta { gap: 8px; }

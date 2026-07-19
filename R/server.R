@@ -200,6 +200,7 @@ app_server <- function(store) {
   force(store)
   function(input, output, session) {
     catalog <- store$catalog
+    weather_catalog <- weather_observation_catalog()
     territories <- store$territories
     current_language <- reactive(normalize_language(input$language))
     current_timezone <- reactive(normalize_timezone(input$timezone))
@@ -236,6 +237,20 @@ app_server <- function(store) {
         function(i) stats::setNames(territories$territory_id[i], territories$display_name[i])
       )
     }
+    localized_weather_source_choices <- function(language) {
+      stats::setNames(
+        names(weather_catalog),
+        vapply(weather_catalog, function(source) tr(language, source$label_key), character(1))
+      )
+    }
+    localized_weather_product_choices <- function(source_id, language) {
+      source_id <- if (source_id %in% names(weather_catalog)) source_id else names(weather_catalog)[[1]]
+      products <- weather_catalog[[source_id]]$products
+      stats::setNames(
+        names(products),
+        vapply(products, function(product) tr(language, product$label_key), character(1))
+      )
+    }
     default_territory <- if ("330455" %in% territories$territory_id) "330455" else territories$territory_id[[1]]
     map_ready <- reactiveVal(FALSE)
     displayed_horizon <- reactiveVal(12)
@@ -265,15 +280,6 @@ app_server <- function(store) {
         mapgl::add_globe_control(position = "top-right") |>
         mapgl::add_navigation_control(position = "top-right", visualize_pitch = TRUE) |>
         mapgl::add_scale_control(position = "bottom-right", unit = "metric") |>
-        mapgl::add_raster_source(
-          id = "satellite",
-          tiles = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          tileSize = 256
-        ) |>
-        mapgl::add_raster_layer(
-          id = "satellite", source = "satellite", raster_opacity = .76,
-          visibility = "none"
-        ) |>
         mapgl::add_image_source(
           id = "forecast", url = initial_image$url,
           coordinates = initial_image$coordinates
@@ -359,6 +365,41 @@ app_server <- function(store) {
           mapId = session$ns("forecast_map"),
           active = wind_enabled && store$wind_available,
           url = if (store$wind_available) store$wind_url(wind_horizon) else NULL
+        )
+      )
+      invisible(TRUE)
+    }
+
+    selected_weather_source <- function() {
+      id <- isolate(input$weather_source %||% names(weather_catalog)[[1]])
+      if (!id %in% names(weather_catalog)) id <- names(weather_catalog)[[1]]
+      list(id = id, config = weather_catalog[[id]])
+    }
+
+    selected_weather_product <- function(source) {
+      id <- isolate(input$weather_product %||% names(source$config$products)[[1]])
+      if (!id %in% names(source$config$products)) id <- names(source$config$products)[[1]]
+      list(id = id, config = source$config$products[[id]])
+    }
+
+    send_weather_update <- function() {
+      if (!isTRUE(isolate(map_ready()))) return(invisible(FALSE))
+      source <- selected_weather_source()
+      product <- selected_weather_product(source)
+      refresh_bucket <- floor(as.numeric(Sys.time()) / (source$config$refresh_minutes * 60))
+      session$sendCustomMessage(
+        "alertar:weather-observation",
+        list(
+          mapId = session$ns("forecast_map"),
+          timeInputId = session$ns("weather_observation_time"),
+          active = isTRUE(isolate(input$show_weather)),
+          url = weather_observation_tile_url(source$config, product$config),
+          sourceId = source$id,
+          productId = product$id,
+          refreshKey = refresh_bucket,
+          maxzoom = product$config$maxzoom %||% source$config$maxzoom,
+          opacity = .78,
+          attribution = source$config$provider
         )
       )
       invisible(TRUE)
@@ -452,11 +493,18 @@ app_server <- function(store) {
       ignoreInit = FALSE, ignoreNULL = FALSE
     )
 
-    observeEvent(input$show_satellite, {
+    weather_refresh_minutes <- min(vapply(
+      weather_catalog, function(source) source$refresh_minutes, numeric(1)
+    ))
+    weather_refresh <- reactiveTimer(weather_refresh_minutes * 60 * 1000, session)
+    observe({
+      weather_refresh()
       req(map_ready())
-      mapgl::maplibre_proxy("forecast_map", session) |>
-        mapgl::set_layout_property("satellite", "visibility", if (isTRUE(input$show_satellite)) "visible" else "none")
-    }, ignoreInit = TRUE)
+      input$show_weather
+      input$weather_source
+      input$weather_product
+      send_weather_update()
+    })
 
     observe({
       req(map_ready())
@@ -517,8 +565,7 @@ app_server <- function(store) {
       update_raster(input$indicator, horizon)
       schedule_raster_preload(input$indicator, horizon)
       update_selected_territory()
-      mapgl::maplibre_proxy("forecast_map", session) |>
-        mapgl::set_layout_property("satellite", "visibility", if (isTRUE(input$show_satellite)) "visible" else "none")
+      send_weather_update()
       if (!is.null(store$fires) && nrow(store$fires)) {
         visible <- isTRUE(input$show_fires)
         mapgl::maplibre_proxy("forecast_map", session) |>
@@ -961,7 +1008,22 @@ app_server <- function(store) {
       )
       updateCheckboxInput(session, "show_wind", label = tr(language, "wind_particles"))
       updateCheckboxInput(session, "show_fires", label = tr(language, "heat_spots"))
-      updateCheckboxInput(session, "show_satellite", label = tr(language, "satellite_image"))
+      updateCheckboxInput(session, "show_weather", label = tr(language, "weather_imagery"))
+      selected_weather_source_id <- isolate(input$weather_source %||% names(weather_catalog)[[1]])
+      if (!selected_weather_source_id %in% names(weather_catalog)) {
+        selected_weather_source_id <- names(weather_catalog)[[1]]
+      }
+      selected_weather_product_id <- isolate(
+        input$weather_product %||% names(weather_catalog[[selected_weather_source_id]]$products)[[1]]
+      )
+      updateSelectInput(
+        session, "weather_source",
+        choices = localized_weather_source_choices(language), selected = selected_weather_source_id
+      )
+      updateSelectInput(
+        session, "weather_product",
+        choices = localized_weather_product_choices(selected_weather_source_id, language), selected = selected_weather_product_id
+      )
       update_play_button()
 
       session$sendCustomMessage(
@@ -984,9 +1046,13 @@ app_server <- function(store) {
             list(
               tr(language, "history"), tr(language, "reports"), tr(language, "about"),
               tr(language, "layer_heading"), tr(language, "local_heading"),
-              tr(language, "download_series"), tr(language, "forecast_horizon")
+              tr(language, "download_series"), tr(language, "forecast_horizon"),
+              tr(language, "weather_heading"), tr(language, "weather_source"), tr(language, "weather_product")
             ),
-            c("label-history", "label-reports", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-forecast-horizon")
+            c(
+              "label-history", "label-reports", "label-about", "label-layer-heading", "label-local-heading",
+              "label-download", "label-forecast-horizon", "label-weather-heading", "label-weather-source", "label-weather-product"
+            )
           ),
           mapControls = stats::setNames(
             list(
@@ -1005,6 +1071,45 @@ app_server <- function(store) {
         )
       }
     }, ignoreInit = FALSE)
+
+    observeEvent(input$weather_source, {
+      source_id <- input$weather_source
+      if (!source_id %in% names(weather_catalog)) return()
+      current <- isolate(input$weather_product)
+      choices <- localized_weather_product_choices(source_id, current_language())
+      selected <- if (current %in% unname(choices)) current else unname(choices)[[1]]
+      updateSelectInput(session, "weather_product", choices = choices, selected = selected)
+    }, ignoreInit = TRUE)
+
+    output$weather_status <- renderUI({
+      language <- current_language()
+      timezone <- current_timezone()
+      source_id <- input$weather_source %||% names(weather_catalog)[[1]]
+      if (!source_id %in% names(weather_catalog)) source_id <- names(weather_catalog)[[1]]
+      source <- weather_catalog[[source_id]]
+      observed_at <- suppressWarnings(as.POSIXct(
+        input$weather_observation_time,
+        format = "%Y-%m-%dT%H:%M:%OSZ", tz = "UTC"
+      ))
+      timestamp <- if (length(observed_at) && !is.na(observed_at)) {
+        format(
+          in_timezone(observed_at, timezone),
+          if (language == "en") "%Y-%m-%d · %H:%M" else "%d/%m/%Y · %H:%M",
+          tz = timezone
+        )
+      } else {
+        tr(language, "weather_latest")
+      }
+      div(
+        class = "weather-status", role = "status", `aria-live` = "polite",
+        span(class = "weather-live-dot", `aria-hidden` = "true"),
+        div(
+          tags$strong(timestamp),
+          tags$small(tr(language, "weather_refresh", source$refresh_minutes, timezone_code(timezone))),
+          tags$small(source$provider)
+        )
+      )
+    })
 
     observeEvent(input$totem_mode, {
       active <- isTRUE(input$totem_mode)

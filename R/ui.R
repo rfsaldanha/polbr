@@ -48,7 +48,8 @@ about_project_modal <- function(language = "pt") {
       tags$section(
         h3(tr(language, "about_methods_heading")),
         p(tr(language, "about_methods_p1")),
-        p(tr(language, "about_methods_p2"))
+        p(tr(language, "about_methods_p2")),
+        p(tr(language, "about_methods_p3"))
       ),
       tags$section(
         h3(tr(language, "about_coverage_heading")),
@@ -574,6 +575,9 @@ territorial_report_html <- function(report, language, timezone) {
 
 app_ui <- function(store) {
   catalog <- store$catalog[store$available]
+  weather_catalog <- weather_observation_catalog()
+  default_weather_source <- names(weather_catalog)[[1]]
+  default_weather_product <- names(weather_catalog[[default_weather_source]]$products)[[1]]
   timezones <- timezone_catalog()
   indicator_choices <- stats::setNames(
     names(catalog),
@@ -687,10 +691,41 @@ app_ui <- function(store) {
         uiOutput("indicator_summary"),
         div(class = "divider"),
         div(
-          class = "layer-switches",
+          class = "layer-switches forecast-overlays",
           checkboxInput("show_wind", tr("pt", "wind_particles"), value = store$wind_available),
-          checkboxInput("show_fires", tr("pt", "heat_spots"), value = TRUE),
-          checkboxInput("show_satellite", tr("pt", "satellite_image"), value = FALSE)
+          checkboxInput("show_fires", tr("pt", "heat_spots"), value = TRUE)
+        ),
+        div(class = "divider weather-divider"),
+        div(
+          class = "weather-layer-control",
+          checkboxInput("show_weather", tr("pt", "weather_imagery"), value = FALSE),
+          conditionalPanel(
+            condition = "input.show_weather === true",
+            div(
+              class = "weather-source-card",
+              div(class = "weather-card-kicker", icon("satellite-dish"), span(id = "label-weather-heading", tr("pt", "weather_heading"))),
+              tags$label(`for` = "weather_source", id = "label-weather-source", tr("pt", "weather_source")),
+              selectInput(
+                "weather_source", NULL,
+                choices = stats::setNames(default_weather_source, tr("pt", weather_catalog[[default_weather_source]]$label_key)),
+                selected = default_weather_source
+              ),
+              tags$label(`for` = "weather_product", id = "label-weather-product", tr("pt", "weather_product")),
+              selectInput(
+                "weather_product", NULL,
+                choices = stats::setNames(
+                  names(weather_catalog[[default_weather_source]]$products),
+                  vapply(
+                    weather_catalog[[default_weather_source]]$products,
+                    function(product) tr("pt", product$label_key),
+                    character(1)
+                  )
+                ),
+                selected = default_weather_product
+              ),
+              uiOutput("weather_status", class = "weather-status-output")
+            )
+          )
         )
       ),
 

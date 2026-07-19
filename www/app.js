@@ -6,6 +6,7 @@
   const jsonPreloads = new Map();
   const latestRasterTokens = new Map();
   const mapLanguageRequests = new Map();
+  const weatherObservationStates = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
   let handlersRegistered = false;
@@ -347,6 +348,88 @@
     } catch (error) {
       console.error("Falha ao atualizar raster:", error);
       acknowledge(false, String(error));
+    }
+  }
+
+  function weatherMetadataUrl(tileUrl) {
+    return String(tileUrl || "")
+      .replace("{z}", "0")
+      .replace("{y}", "0")
+      .replace("{x}", "0");
+  }
+
+  async function reportWeatherObservationTime(message) {
+    if (!message.timeInputId || !message.url) return;
+    try {
+      const response = await fetch(weatherMetadataUrl(message.url), {
+        method: "HEAD",
+        cache: "no-store"
+      });
+      if (!response.ok) return;
+      const observedAt = response.headers.get("layer-time-actual");
+      if (observedAt && window.Shiny && typeof Shiny.setInputValue === "function") {
+        Shiny.setInputValue(message.timeInputId, observedAt, {priority: "event"});
+      }
+    } catch (error) {
+      console.debug("Horario da imagem meteorologica indisponivel:", error);
+    }
+  }
+
+  async function updateWeatherObservation(message) {
+    const el = getMapElement(message.mapId);
+    if (!el) return;
+    let attempts = 0;
+    while ((!el.map || !el.map.isStyleLoaded()) && attempts++ < 80) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!el.map || !el.map.isStyleLoaded()) return;
+
+    const map = el.map;
+    const layerId = "weather-observation";
+    const sourceId = "weather-observation";
+    const active = Boolean(message.active && message.url);
+    const signature = [message.sourceId, message.productId, message.url, message.refreshKey].join("|");
+    const previous = weatherObservationStates.get(message.mapId);
+    const shouldRefresh = !previous || previous.signature !== signature || !previous.active;
+
+    if (!active) {
+      if (map.getLayer(layerId)) map.setLayoutProperty(layerId, "visibility", "none");
+      weatherObservationStates.set(message.mapId, Object.assign({}, previous, {active: false}));
+      return;
+    }
+
+    try {
+      if (shouldRefresh || !map.getSource(sourceId)) {
+        if (map.getLayer(layerId)) map.removeLayer(layerId);
+        if (map.getSource(sourceId)) map.removeSource(sourceId);
+        map.addSource(sourceId, {
+          type: "raster",
+          tiles: [message.url],
+          tileSize: 256,
+          maxzoom: Number(message.maxzoom) || 7,
+          attribution: message.attribution || "NASA GIBS · NOAA GOES-East"
+        });
+        const beforeId = map.getLayer("forecast") ? "forecast" : undefined;
+        map.addLayer({
+          id: layerId,
+          type: "raster",
+          source: sourceId,
+          layout: {visibility: "visible"},
+          paint: {
+            "raster-opacity": Number(message.opacity) || .78,
+            "raster-fade-duration": 300,
+            "raster-resampling": "linear"
+          }
+        }, beforeId);
+      } else {
+        map.setLayoutProperty(layerId, "visibility", "visible");
+        map.setPaintProperty(layerId, "raster-opacity", Number(message.opacity) || .78);
+      }
+      weatherObservationStates.set(message.mapId, {active: true, signature: signature});
+      map.triggerRepaint();
+      if (shouldRefresh) reportWeatherObservationTime(message);
+    } catch (error) {
+      console.warn("Imagem meteorologica indisponivel:", error);
     }
   }
 
@@ -737,6 +820,7 @@
     handlersRegistered = true;
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
+    Shiny.addCustomMessageHandler("alertar:weather-observation", updateWeatherObservation);
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);
     Shiny.addCustomMessageHandler("alertar:interface", updateInterface);
