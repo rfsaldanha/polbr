@@ -205,6 +205,129 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     result
   }
 
+  query_report_metrics <- function(id) {
+    key <- paste0("report-metrics-v1-", id)
+    if (query_cache$exists(key)) return(query_cache$get(key))
+    cfg <- catalog[[id]]
+    table <- cfg$table
+    if (is.null(con) || !table %in% tables) return(data.frame())
+
+    fields <- DBI::dbListFields(con, table)
+    key_field <- c("territory_id", "place_id", "code_muni")
+    key_field <- key_field[key_field %in% fields]
+    if (!length(key_field) || !all(c("date", "value") %in% fields)) return(data.frame())
+    key_field <- key_field[[1]]
+    key_expression <- if (identical(key_field, "code_muni")) {
+      sprintf("CAST(CAST(%s AS BIGINT) AS VARCHAR)", DBI::dbQuoteIdentifier(con, key_field))
+    } else {
+      sprintf("CAST(%s AS VARCHAR)", DBI::dbQuoteIdentifier(con, key_field))
+    }
+
+    series_scale <- if (is.null(cfg$series_scale)) 1 else cfg$series_scale
+    series_offset <- if (is.null(cfg$series_offset)) 0 else cfg$series_offset
+    value_expression <- sprintf(
+      "(CAST(value AS DOUBLE) * %.17g + %.17g)",
+      series_scale, series_offset
+    )
+    category_breaks <- cfg$breaks %||% numeric()
+    category_columns <- character()
+    if (length(category_breaks) >= 2L) {
+      category_columns <- vapply(seq_len(length(category_breaks) - 1L), function(index) {
+        lower <- category_breaks[[index]]
+        upper <- category_breaks[[index + 1L]]
+        condition <- if (!is.finite(lower)) {
+          sprintf("metric_value < %.17g", upper)
+        } else if (!is.finite(upper)) {
+          sprintf("metric_value >= %.17g", lower)
+        } else {
+          sprintf("metric_value >= %.17g AND metric_value < %.17g", lower, upper)
+        }
+        sprintf(
+          "SUM(CASE WHEN %s THEN duration_hours ELSE 0 END) AS category_%d_hours",
+          condition, index
+        )
+      }, character(1))
+    }
+
+    references <- cfg$references %||% list()
+    reference_value <- if (length(references)) as.numeric(references[[1]]$value) else NA_real_
+    reference_column <- if (is.finite(reference_value)) {
+      sprintf(
+        "SUM(CASE WHEN metric_value > %.17g THEN duration_hours ELSE 0 END) AS hours_above_reference",
+        reference_value
+      )
+    } else {
+      "CAST(NULL AS DOUBLE) AS hours_above_reference"
+    }
+
+    select_columns <- c(
+      "territory_key",
+      "COUNT(*) AS sample_count",
+      "MIN(date) AS period_start",
+      "MAX(date) AS period_end",
+      "MAX(metric_value) AS maximum_value",
+      "ARG_MAX(date, metric_value) AS maximum_date",
+      "AVG(metric_value) AS mean_value",
+      "SUM(duration_hours) AS hours_covered",
+      reference_column,
+      category_columns
+    )
+    sql <- sprintf(
+      paste(
+        "WITH ordered AS (",
+        "SELECT %s AS territory_key, date, %s AS metric_value,",
+        "LEAD(date) OVER (PARTITION BY %s ORDER BY date) AS next_date",
+        "FROM %s WHERE value IS NOT NULL",
+        "), timed AS (",
+        "SELECT territory_key, date, metric_value,",
+        "CASE WHEN next_date IS NULL THEN 0 ELSE LEAST(%.17g, GREATEST(0, date_diff('second', date, next_date) / 3600.0)) END AS duration_hours",
+        "FROM ordered",
+        ") SELECT %s FROM timed GROUP BY territory_key",
+        sep = " "
+      ),
+      key_expression,
+      value_expression,
+      DBI::dbQuoteIdentifier(con, key_field),
+      DBI::dbQuoteIdentifier(con, table),
+      as.numeric(cfg$interval),
+      paste(select_columns, collapse = ", ")
+    )
+    result <- DBI::dbGetQuery(con, sql)
+    if (!nrow(result)) return(result)
+    result$period_start <- as.POSIXct(result$period_start, tz = "UTC")
+    result$period_end <- as.POSIXct(result$period_end, tz = "UTC")
+    result$maximum_date <- as.POSIXct(result$maximum_date, tz = "UTC")
+
+    metadata <- sf::st_drop_geometry(territories)
+    metadata_key <- if (key_field %in% names(metadata)) {
+      as.character(metadata[[key_field]])
+    } else {
+      as.character(metadata$territory_id)
+    }
+    metadata <- metadata[!duplicated(metadata_key), , drop = FALSE]
+    metadata_key <- metadata_key[!duplicated(metadata_key)]
+    result_key <- as.character(result$territory_key)
+    matched <- match(result_key, metadata_key)
+    if (identical(key_field, "code_muni")) {
+      legacy_key <- ifelse(grepl("^[0-9]{7}$", result_key), substr(result_key, 1L, 6L), result_key)
+      unmatched <- is.na(matched)
+      matched[unmatched] <- match(legacy_key[unmatched], metadata_key)
+    }
+    keep <- !is.na(matched)
+    result <- result[keep, , drop = FALSE]
+    matched <- matched[keep]
+    result$territory_id <- as.character(metadata$territory_id[matched])
+    result$display_name <- as.character(metadata$display_name[matched])
+    result$territory_type <- as.character(metadata$territory_type[matched])
+    result$admin1_code <- as.character(metadata$admin1_code[matched])
+    result$country_code <- as.character(metadata$country_code[matched])
+    result$country_name <- as.character(metadata$country_name[matched])
+    result <- result[order(-result$maximum_value, result$display_name), , drop = FALSE]
+    rownames(result) <- NULL
+    query_cache$set(key, result)
+    result
+  }
+
   analysis_time <- function(id) {
     key <- paste0("analysis", id)
     if (query_cache$exists(key)) return(query_cache$get(key))
@@ -285,6 +408,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     normalize_horizon = normalize_horizon,
     future_horizons = future_horizons,
     query_series = query_series,
+    query_report_metrics = query_report_metrics,
     analysis_time = analysis_time,
     revision = revision,
     refresh = refresh,

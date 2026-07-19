@@ -157,6 +157,45 @@ draw_forecast_plot <- function(data, cfg, references, language, timezone, target
   invisible(NULL)
 }
 
+report_category_specs <- function(cfg, language) {
+  breaks <- cfg$breaks %||% numeric()
+  if (length(breaks) < 2L) return(list())
+  Map(function(index, lower, upper, color) {
+    format_bound <- function(value) report_format_number(value, cfg$digits, language)
+    label <- if (!is.finite(lower)) {
+      paste0("< ", format_bound(upper))
+    } else if (!is.finite(upper)) {
+      paste0("≥ ", format_bound(lower))
+    } else {
+      paste0(format_bound(lower), "–< ", format_bound(upper))
+    }
+    list(
+      column = sprintf("category_%d_hours", index),
+      label = paste(label, pretty_unit(cfg$unit)),
+      color = color
+    )
+  }, seq_len(length(breaks) - 1L), head(breaks, -1L), tail(breaks, -1L), cfg$colors)
+}
+
+rank_report_units <- function(data, categories, language) {
+  if (!nrow(data)) return(data)
+  data <- data[order(-data$maximum_value, data$display_name), , drop = FALSE]
+  data$rank <- seq_len(nrow(data))
+  if (length(categories)) {
+    columns <- vapply(categories, `[[`, character(1), "column")
+    category_hours <- as.matrix(data[, columns, drop = FALSE])
+    category_hours[!is.finite(category_hours)] <- 0
+    dominant <- max.col(category_hours, ties.method = "first")
+    data$dominant_band <- vapply(categories[dominant], `[[`, character(1), "label")
+    data$dominant_color <- vapply(categories[dominant], `[[`, character(1), "color")
+  } else {
+    data$dominant_band <- tr(language, "report_no_reference")
+    data$dominant_color <- "#7890a0"
+  }
+  rownames(data) <- NULL
+  data
+}
+
 app_server <- function(store) {
   force(store)
   function(input, output, session) {
@@ -536,6 +575,72 @@ app_server <- function(store) {
       data$value[[which.min(abs(as.numeric(difftime(data$date, target, units = "secs"))))]]
     })
 
+    territorial_report_data <- reactive({
+      req(input$indicator, input$territory)
+      data_revision()
+      language <- current_language()
+      id <- input$indicator
+      cfg <- catalog[[id]]
+      territory <- territories[territories$territory_id == input$territory, , drop = FALSE]
+      req(nrow(territory) == 1L)
+      metrics <- store$query_report_metrics(id)
+      if (!nrow(metrics)) return(list(available = FALSE))
+
+      selected_type <- tolower(as.character(territory$territory_type[[1]]))
+      selected_country <- as.character(territory$country_code[[1]])
+      selected_state <- as.character(territory$admin1_code[[1]])
+      comparable <- metrics[
+        tolower(metrics$territory_type) == selected_type &
+          metrics$country_code == selected_country,
+        , drop = FALSE
+      ]
+      if (!nrow(comparable)) return(list(available = FALSE))
+
+      categories <- report_category_specs(cfg, language)
+      national <- rank_report_units(comparable, categories, language)
+      state <- comparable[
+        nzchar(selected_state) & comparable$admin1_code == selected_state,
+        , drop = FALSE
+      ]
+      state <- rank_report_units(state, categories, language)
+      selected_index <- match(as.character(input$territory), national$territory_id)
+      if (is.na(selected_index)) return(list(available = FALSE))
+      selected <- national[selected_index, , drop = FALSE]
+      selected$national_rank <- national$rank[[selected_index]]
+      state_index <- match(as.character(input$territory), state$territory_id)
+      selected$state_rank <- if (is.na(state_index)) NA_integer_ else state$rank[[state_index]]
+
+      references <- Map(
+        function(reference, index) localized_reference(language, id, reference, index),
+        cfg$references %||% list(), seq_along(cfg$references %||% list())
+      )
+      reference <- if (length(references)) references[[1]] else NULL
+      territory_type_label <- as.character(territory$territory_type[[1]])
+      if (selected_type %in% c("municipio", "município", "municipality", "commune")) {
+        territory_type_label <- tr(language, "territory_municipality")
+      }
+
+      list(
+        available = TRUE,
+        id = id,
+        cfg = cfg,
+        territory = sf::st_drop_geometry(territory),
+        territory_type_label = territory_type_label,
+        selected_id = as.character(input$territory),
+        selected = selected,
+        national = national,
+        state = state,
+        categories = categories,
+        reference_value = if (is.null(reference)) NA_real_ else as.numeric(reference$value),
+        reference_label = if (is.null(reference)) "" else reference$label,
+        reference_note = if (is.null(reference)) "" else reference_note(language, id, cfg$reference_note %||% ""),
+        country_label = as.character(territory$country_name[[1]]),
+        state_label = if (nzchar(selected_state)) selected_state else "—",
+        period = c(selected$period_start[[1]], selected$period_end[[1]]),
+        generated_at = Sys.time()
+      )
+    }) |> bindCache(input$indicator, input$territory, current_language(), data_revision())
+
     output$update_badge <- renderUI({
       language <- current_language()
       timezone <- current_timezone()
@@ -736,6 +841,23 @@ app_server <- function(store) {
       content = function(file) utils::write.csv2(series(), file, row.names = FALSE)
     )
 
+    output$territorial_report <- renderUI({
+      territorial_report_view(territorial_report_data(), current_language(), current_timezone())
+    })
+
+    output$download_territorial_report <- downloadHandler(
+      filename = function() {
+        sprintf("alertar_relatorio_%s_%s.html", input$indicator, input$territory)
+      },
+      content = function(file) {
+        html <- territorial_report_html(
+          territorial_report_data(), current_language(), current_timezone()
+        )
+        writeLines(enc2utf8(html), file, useBytes = TRUE)
+      },
+      contentType = "text/html"
+    )
+
     playing <- reactiveVal(FALSE)
     frame_pending <- reactiveVal(FALSE)
     animation_restarting <- reactiveVal(FALSE)
@@ -859,11 +981,11 @@ app_server <- function(store) {
           ),
           text = stats::setNames(
             list(
-              tr(language, "history"), tr(language, "about"),
+              tr(language, "history"), tr(language, "reports"), tr(language, "about"),
               tr(language, "layer_heading"), tr(language, "local_heading"),
               tr(language, "download_series"), tr(language, "forecast_horizon")
             ),
-            c("label-history", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-forecast-horizon")
+            c("label-history", "label-reports", "label-about", "label-layer-heading", "label-local-heading", "label-download", "label-forecast-horizon")
           ),
           mapControls = stats::setNames(
             list(
@@ -1025,6 +1147,10 @@ app_server <- function(store) {
 
     observeEvent(input$open_history, {
       showModal(historical_data_modal(current_language()))
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$open_reports, {
+      showModal(territorial_report_modal(current_language()))
     }, ignoreInit = TRUE)
 
     observeEvent(input$forecast_spark_click, {

@@ -48,6 +48,11 @@ Para uma base multinacional e multiterritorial, use `territories.rds` (objeto `s
 
 Os rasters presentes determinam as camadas exibidas. O banco `cams_forecast.duckdb` habilita leituras e downloads territoriais; novas tabelas podem usar `territory_id`, enquanto as tabelas municipais legadas continuam compativeis. Arquivos `wind_1.json` a `wind_121.json` habilitam a animacao de vento.
 
+A área de relatórios compara a unidade selecionada com unidades do mesmo tipo no
+estado e no país. Os rankings, horas acima da referência e horas por faixa são
+calculados no DuckDB sem formar médias espaciais estaduais ou nacionais. O
+resultado pode ser exportado como um único arquivo HTML autocontido.
+
 ## Arquitetura
 
 - `R/config.R`: catalogo, unidades, escalas e paletas.

@@ -109,6 +109,225 @@ forecast_chart_modal <- function(language, title) {
   )
 }
 
+territorial_report_modal <- function(language) {
+  modalDialog(
+    title = tagList(icon("file-lines"), tr(language, "report_title")),
+    uiOutput("territorial_report"),
+    footer = tagList(
+      downloadButton(
+        "download_territorial_report", tr(language, "report_download_html"),
+        icon = icon("download"), class = "chart-download-button"
+      ),
+      modalButton(tr(language, "close"))
+    ),
+    easyClose = TRUE,
+    size = "xl",
+    class = "territorial-report-modal"
+  )
+}
+
+report_format_number <- function(value, digits, language) {
+  if (!length(value) || !is.finite(value[[1]])) return("—")
+  format(
+    round(value[[1]], digits), nsmall = digits, trim = TRUE,
+    scientific = FALSE, decimal.mark = if (language == "en") "." else ","
+  )
+}
+
+report_format_hours <- function(value, language) {
+  if (!length(value) || !is.finite(value[[1]])) return(tr(language, "report_no_reference"))
+  paste0(report_format_number(value, if (abs(value - round(value)) < 1e-8) 0 else 1, language), " h")
+}
+
+report_format_datetime <- function(value, language, timezone) {
+  if (!length(value) || is.na(value[[1]])) return("—")
+  value <- in_timezone(as.POSIXct(value[[1]], origin = "1970-01-01", tz = "UTC"), timezone)
+  format(value, if (language == "en") "%Y-%m-%d %H:%M" else "%d/%m/%Y %H:%M", tz = timezone)
+}
+
+report_format_rank <- function(rank, total, language) {
+  if (!length(rank) || !is.finite(rank[[1]]) || !is.finite(total) || total < 1L) return("—")
+  tr(language, "report_rank_value", as.integer(rank[[1]]), as.integer(total))
+}
+
+report_metric_card <- function(label, value, detail = NULL, accent = FALSE) {
+  div(
+    class = paste("report-metric", if (accent) "is-accent" else ""),
+    span(class = "report-metric-label", label),
+    strong(value),
+    if (!is.null(detail)) tags$small(detail)
+  )
+}
+
+report_ranking_table <- function(data, report, language, timezone) {
+  cfg <- report$cfg
+  data <- utils::head(data, 10L)
+  if (!nrow(data)) return(p(class = "report-empty", tr(language, "report_data_unavailable")))
+  tags$table(
+    class = "report-ranking-table",
+    tags$thead(tags$tr(
+      tags$th(tr(language, "report_rank")),
+      tags$th(tr(language, "report_territory")),
+      tags$th(tr(language, "report_maximum")),
+      tags$th(tr(language, "report_maximum_time")),
+      tags$th(tr(language, "report_hours_above")),
+      tags$th(tr(language, "report_dominant_band"))
+    )),
+    tags$tbody(lapply(seq_len(nrow(data)), function(index) {
+      row <- data[index, , drop = FALSE]
+      selected <- identical(as.character(row$territory_id[[1]]), report$selected_id)
+      tags$tr(
+        class = if (selected) "is-selected" else NULL,
+        tags$td(paste0("#", row$rank[[1]])),
+        tags$td(row$display_name[[1]]),
+        tags$td(
+          class = "report-value-cell",
+          report_format_number(row$maximum_value, cfg$digits, language),
+          tags$small(pretty_unit(cfg$unit))
+        ),
+        tags$td(report_format_datetime(row$maximum_date, language, timezone)),
+        tags$td(report_format_hours(row$hours_above_reference, language)),
+        tags$td(
+          span(
+            class = "report-band-chip",
+            style = paste0("--band-color:", row$dominant_color[[1]]),
+            row$dominant_band[[1]]
+          )
+        )
+      )
+    }))
+  )
+}
+
+territorial_report_view <- function(report, language, timezone) {
+  if (is.null(report) || !isTRUE(report$available)) {
+    return(div(class = "report-empty-state", tr(language, "report_data_unavailable")))
+  }
+  cfg <- report$cfg
+  selected <- report$selected
+  unit <- pretty_unit(cfg$unit)
+  period_start <- report_format_datetime(report$period[[1]], language, timezone)
+  period_end <- report_format_datetime(report$period[[2]], language, timezone)
+  report_reference_note <- report$reference_note %||% ""
+  reference_detail <- if (is.finite(report$reference_value)) {
+    tr(language, "report_reference", paste(report$reference_label, report_format_number(report$reference_value, cfg$digits, language), unit))
+  } else tr(language, "report_no_reference")
+
+  category_section <- if (length(report$categories)) {
+    max_hours <- max(selected$hours_covered[[1]], 1)
+    div(
+      class = "report-category-section",
+      h3(tr(language, "report_category_hours")),
+      div(class = "report-category-list", lapply(seq_along(report$categories), function(index) {
+        category <- report$categories[[index]]
+        hours <- selected[[category$column]][[1]]
+        div(
+          class = "report-category-row",
+          div(
+            class = "report-category-meta",
+            span(class = "report-band-chip", style = paste0("--band-color:", category$color), category$label),
+            strong(report_format_hours(hours, language))
+          ),
+          div(
+            class = "report-category-track",
+            span(style = sprintf("--band-color:%s;--band-width:%.3f%%", category$color, 100 * hours / max_hours))
+          )
+        )
+      }))
+    )
+  } else {
+    div(
+      class = "report-category-section",
+      h3(tr(language, "report_category_hours")),
+      p(class = "report-empty", tr(language, "report_no_categories"))
+    )
+  }
+
+  div(
+    class = "territorial-report",
+    tags$header(
+      class = "report-hero",
+      div(
+        span(class = "report-kicker", indicator_text(language, report$id, "short", cfg$short)),
+        h2(report$territory$display_name[[1]]),
+        p(tr(language, "report_intro"))
+      ),
+      div(
+        class = "report-period",
+        span(tr(language, "report_period", period_start, period_end, timezone_code(timezone))),
+        tags$small(tr(language, "report_generated", report_format_datetime(report$generated_at, language, timezone)))
+      )
+    ),
+    tags$section(
+      class = "report-local-section",
+      div(class = "report-section-heading", div(h2(tr(language, "report_local_view")), p(report$territory_type_label))),
+      div(
+        class = "report-metric-grid",
+        report_metric_card(
+          tr(language, "report_maximum"),
+          paste(report_format_number(selected$maximum_value, cfg$digits, language), unit),
+          report_format_datetime(selected$maximum_date, language, timezone), TRUE
+        ),
+        report_metric_card(tr(language, "report_mean"), paste(report_format_number(selected$mean_value, cfg$digits, language), unit)),
+        report_metric_card(tr(language, "report_hours_above"), report_format_hours(selected$hours_above_reference, language), reference_detail),
+        report_metric_card(
+          tr(language, "report_selected_rank"),
+          paste(report$country_label, "·", report_format_rank(selected$national_rank, nrow(report$national), language)),
+          paste(report$state_label, "·", report_format_rank(selected$state_rank, nrow(report$state), language))
+        )
+      ),
+      category_section,
+      if (nzchar(report_reference_note)) p(class = "report-reference-note", report_reference_note)
+    ),
+    tags$section(
+      class = "report-comparison-section",
+      div(
+        class = "report-section-heading",
+        div(h2(tr(language, "report_national_view")), p(paste(report$country_label, "·", tr(language, "report_units", nrow(report$national))))),
+        span(tr(language, "report_top_ten"))
+      ),
+      report_ranking_table(report$national, report, language, timezone)
+    ),
+    tags$section(
+      class = "report-comparison-section",
+      div(
+        class = "report-section-heading",
+        div(h2(tr(language, "report_state_view")), p(paste(report$state_label, "·", tr(language, "report_units", nrow(report$state))))),
+        span(tr(language, "report_top_ten"))
+      ),
+      report_ranking_table(report$state, report, language, timezone)
+    ),
+    p(class = "report-method-note", tr(language, "report_method_note"))
+  )
+}
+
+territorial_report_html <- function(report, language, timezone) {
+  css <- paste(
+    "*{box-sizing:border-box}body{margin:0;background:#071018;color:#edf7ff;font-family:Arial,sans-serif}",
+    ".report-export{max-width:1200px;margin:auto;padding:32px}.territorial-report{display:grid;gap:18px}",
+    ".report-hero,.report-section-heading{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}",
+    ".report-hero,.territorial-report section{padding:22px;background:#0a1922;border:1px solid #29404c;border-radius:16px}",
+    "h2,h3,p{margin-top:0}.report-kicker,.report-metric-label{color:#35d4b4;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}",
+    ".report-period{text-align:right;color:#9fb2bd}.report-period small{display:block;margin-top:6px}.report-metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}",
+    ".report-metric{padding:14px;background:#071018;border:1px solid #29404c;border-radius:11px}.report-metric span,.report-metric small{display:block}.report-metric strong{display:block;margin:8px 0;font-size:22px}.report-metric small{color:#89a0af}",
+    ".report-category-list{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.report-category-row{padding:10px;background:#071018;border-radius:9px}.report-category-meta{display:flex;justify-content:space-between}",
+    ".report-band-chip{display:inline-block;padding:3px 7px;color:var(--band-color);border:1px solid var(--band-color);border-radius:999px;font-size:11px}.report-category-track{height:6px;margin-top:8px;background:#1b303a;border-radius:99px}.report-category-track span{display:block;width:var(--band-width);height:100%;background:var(--band-color);border-radius:99px}",
+    ".report-ranking-table{width:100%;border-collapse:collapse}.report-ranking-table th,.report-ranking-table td{padding:10px;border-bottom:1px solid #203641;text-align:left;font-size:12px}.report-ranking-table th{color:#89a0af}.report-ranking-table tr.is-selected{background:#10352f}.report-value-cell small{margin-left:4px;color:#89a0af}.report-method-note,.report-reference-note{color:#89a0af;font-size:12px}",
+    "@media(max-width:760px){.report-export{padding:12px}.report-hero,.report-section-heading{display:block}.report-period{text-align:left}.report-metric-grid,.report-category-list{grid-template-columns:1fr 1fr}.report-comparison-section{overflow-x:auto}}",
+    sep = ""
+  )
+  document <- tags$html(
+    tags$head(
+      tags$meta(charset = "utf-8"),
+      tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+      tags$title(tr(language, "report_title")),
+      tags$style(HTML(css))
+    ),
+    tags$body(div(class = "report-export", territorial_report_view(report, language, timezone)))
+  )
+  paste0("<!doctype html>\n", as.character(document))
+}
+
 app_ui <- function(store) {
   catalog <- store$catalog[store$available]
   timezones <- timezone_catalog()
@@ -193,6 +412,11 @@ app_ui <- function(store) {
         actionButton(
           "open_history",
           label = tagList(icon("database"), span(id = "label-history", tr("pt", "history"))),
+          class = "utility-button"
+        ),
+        actionButton(
+          "open_reports",
+          label = tagList(icon("file-lines"), span(id = "label-reports", tr("pt", "reports"))),
           class = "utility-button"
         ),
         actionButton(
