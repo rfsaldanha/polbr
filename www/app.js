@@ -627,6 +627,67 @@
     state.setActive(Boolean(message.active));
   }
 
+  async function updateFireData(message) {
+    const el = getMapElement(message.mapId);
+    if (!el) return;
+    let attempts = 0;
+    while ((!el.map || !el.map.isStyleLoaded()) && attempts++ < 80) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!el.map || !el.map.isStyleLoaded()) return;
+
+    const map = el.map;
+    const layerId = message.layerId || "fires";
+    const longitude = Array.isArray(message.lon) ? message.lon : [];
+    const latitude = Array.isArray(message.lat) ? message.lat : [];
+    const featureCount = Math.min(longitude.length, latitude.length);
+    const geojson = {
+      type: "FeatureCollection",
+      features: Array.from({length: featureCount}, (_, index) => ({
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Point",
+          coordinates: [Number(longitude[index]), Number(latitude[index])]
+        }
+      }))
+    };
+
+    const existingLayer = map.getLayer(layerId);
+    const sourceId = existingLayer ? existingLayer.source : layerId;
+    const existingSource = map.getSource(sourceId);
+    if (existingSource && typeof existingSource.setData === "function") {
+      existingSource.setData(geojson);
+    } else if (!existingSource) {
+      map.addSource(sourceId, {type: "geojson", data: geojson});
+    }
+
+    if (!map.getLayer(layerId)) {
+      map.addLayer({
+        id: layerId,
+        type: "circle",
+        source: sourceId,
+        layout: {visibility: "none"},
+        paint: {
+          "circle-radius": 2.5,
+          "circle-color": "#ff3b30",
+          "circle-opacity": .92,
+          "circle-stroke-width": 0
+        }
+      });
+    }
+
+    const active = Boolean(message.active);
+    map.setLayoutProperty(layerId, "visibility", active ? "visible" : "none");
+    const stateKey = message.mapId + ":" + layerId;
+    let state = firePulseStates.get(stateKey);
+    if (!state) {
+      state = makeFirePulse(map, layerId);
+      firePulseStates.set(stateKey, state);
+    }
+    state.setActive(active);
+  }
+
   async function updateRaster(message) {
     const token = String(message.token || "");
     latestRasterTokens.set(message.mapId, token);
@@ -1188,6 +1249,7 @@
     handlersRegistered = true;
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:lightning", updateLightning);
+    Shiny.addCustomMessageHandler("alertar:fire-data", updateFireData);
     Shiny.addCustomMessageHandler("alertar:fire-pulse", updateFirePulse);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:forecast-opacity", updateForecastOpacity);

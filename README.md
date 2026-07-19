@@ -23,7 +23,15 @@ maior eixo antes da aplicacao da paleta, mantendo a grade cientifica original e
 melhorando a definicao no navegador. Para ajustar esse limite, use, por exemplo,
 `ALERTAR_RASTER_SIZE=1536`; valores entre 256 e 2048 sao aceitos.
 
-No modo totem, os dados são reabertos automaticamente a cada três horas. O intervalo pode ser ajustado, em horas, com `ALERTAR_TOTEM_REFRESH_HOURS=3`.
+No modo totem, os dados de previsão são reabertos automaticamente a cada três
+horas. O intervalo pode ser ajustado, em horas, com
+`ALERTAR_TOTEM_REFRESH_HOURS=3`. As fontes observadas permanecem em atualização
+periódica durante o ciclo: raios GLM a cada minuto, imagens GOES a cada 10
+minutos e GPM IMERG a cada 30 minutos. O arquivo `bdq_focos.rds` é verificado
+por alteração a cada 10 minutos, sem interromper a animação; esse intervalo pode
+ser configurado com `ALERTAR_TOTEM_LIVE_REFRESH_MINUTES=10`. A produção e a
+substituição desse arquivo continuam sendo responsabilidade do processo externo
+de dados.
 
 O modo totem também pode ser ativado no carregamento pelo parâmetro de URL
 `totem`. São aceitos `?totem`, `?totem=1`, `?totem=true`, `?totem=yes`,

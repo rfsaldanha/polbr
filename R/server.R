@@ -212,6 +212,13 @@ app_server <- function(store, glm_store = NULL) {
       Sys.getenv("ALERTAR_TOTEM_REFRESH_HOURS", unset = "3")
     ))
     if (!is.finite(totem_refresh_hours) || totem_refresh_hours <= 0) totem_refresh_hours <- 3
+    totem_live_refresh_minutes <- suppressWarnings(as.numeric(
+      Sys.getenv("ALERTAR_TOTEM_LIVE_REFRESH_MINUTES", unset = "10")
+    ))
+    if (!is.finite(totem_live_refresh_minutes) || totem_live_refresh_minutes <= 0) {
+      totem_live_refresh_minutes <- 10
+    }
+    totem_live_refresh_trigger <- reactiveVal(0L)
 
     municipality_types <- tolower(as.character(territories$territory_type))
     municipality_ids <- unique(as.character(territories$territory_id[
@@ -292,8 +299,9 @@ app_server <- function(store, glm_store = NULL) {
           raster_fade_duration = 120, raster_resampling = "linear"
         )
 
-      if (!is.null(store$fires) && nrow(store$fires)) {
-        fires <- sf::st_as_sf(store$fires, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+      fires <- store$fires()
+      if (!is.null(fires) && nrow(fires)) {
+        fires <- sf::st_as_sf(fires, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
         map <- map |>
           mapgl::add_circle_layer(
             id = "fires", source = fires, circle_radius = 2.5,
@@ -403,6 +411,31 @@ app_server <- function(store, glm_store = NULL) {
           maxzoom = product$config$maxzoom %||% source$config$maxzoom,
           opacity = product$config$opacity %||% source$config$opacity %||% .78,
           attribution = source$config$provider
+        )
+      )
+      invisible(TRUE)
+    }
+
+    send_fire_update <- function() {
+      if (!isTRUE(isolate(map_ready()))) return(invisible(FALSE))
+      fires <- store$fires()
+      if (is.null(fires) || !nrow(fires) || !all(c("lon", "lat") %in% names(fires))) {
+        longitude <- latitude <- numeric()
+      } else {
+        longitude <- suppressWarnings(as.numeric(fires$lon))
+        latitude <- suppressWarnings(as.numeric(fires$lat))
+        valid <- is.finite(longitude) & is.finite(latitude)
+        longitude <- longitude[valid]
+        latitude <- latitude[valid]
+      }
+      session$sendCustomMessage(
+        "alertar:fire-data",
+        list(
+          mapId = session$ns("forecast_map"),
+          layerId = "fires",
+          active = isTRUE(isolate(input$show_fires)),
+          lon = unname(longitude),
+          lat = unname(latitude)
         )
       )
       invisible(TRUE)
@@ -520,6 +553,7 @@ app_server <- function(store, glm_store = NULL) {
     weather_refresh <- reactiveTimer(weather_refresh_minutes * 60 * 1000, session)
     observe({
       weather_refresh()
+      totem_live_refresh_trigger()
       req(map_ready())
       input$show_weather
       input$weather_source
@@ -530,6 +564,7 @@ app_server <- function(store, glm_store = NULL) {
     lightning_refresh <- reactiveTimer(60 * 1000, session)
     observe({
       lightning_refresh()
+      totem_live_refresh_trigger()
       req(map_ready())
       active <- isTRUE(input$show_lightning)
       lightning_request_sequence <<- lightning_request_sequence + 1L
@@ -573,17 +608,14 @@ app_server <- function(store, glm_store = NULL) {
       }, delay = .05)
     })
 
-    observe({
-      req(map_ready())
-      if (is.null(store$fires) || !nrow(store$fires)) return()
-      visible <- isTRUE(input$show_fires)
-      mapgl::maplibre_proxy("forecast_map", session) |>
-        mapgl::set_layout_property("fires", "visibility", if (visible) "visible" else "none")
-      session$sendCustomMessage(
-        "alertar:fire-pulse",
-        list(mapId = session$ns("forecast_map"), active = visible, layerId = "fires")
-      )
-    })
+    observeEvent(
+      list(map_ready(), input$show_fires),
+      {
+        req(map_ready())
+        send_fire_update()
+      },
+      ignoreInit = FALSE, ignoreNULL = FALSE
+    )
 
     update_selected_territory <- function() {
       req(map_ready(), input$territory)
@@ -637,11 +669,7 @@ app_server <- function(store, glm_store = NULL) {
       schedule_raster_preload(input$indicator, horizon)
       update_selected_territory()
       send_weather_update()
-      if (!is.null(store$fires) && nrow(store$fires)) {
-        visible <- isTRUE(input$show_fires)
-        mapgl::maplibre_proxy("forecast_map", session) |>
-          mapgl::set_layout_property("fires", "visibility", if (visible) "visible" else "none")
-      }
+      send_fire_update()
       if (store$wind_available) {
         session$sendCustomMessage(
           "alertar:preload",
@@ -1244,6 +1272,15 @@ app_server <- function(store, glm_store = NULL) {
         playing_before_totem(isolate(playing()))
         totem_active(TRUE)
         totem_last_refresh(Sys.time())
+        tryCatch(
+          store$refresh_fires(force = TRUE),
+          error = function(error) warning(
+            "Falha na atualização dos focos de calor do modo totem: ",
+            conditionMessage(error)
+          )
+        )
+        send_fire_update()
+        totem_live_refresh_trigger(isolate(totem_live_refresh_trigger()) + 1L)
         cancel_totem_cycle()
         animation_restarting(FALSE)
         playing(TRUE)
@@ -1373,6 +1410,30 @@ app_server <- function(store, glm_store = NULL) {
           step = catalog[[id]]$interval, value = current
         )
       }
+      send_fire_update()
+      totem_live_refresh_trigger(isolate(totem_live_refresh_trigger()) + 1L)
+    })
+
+    live_refresh_timer <- reactiveTimer(totem_live_refresh_minutes * 60 * 1000, session)
+    observe({
+      live_refresh_timer()
+      if (!isTRUE(isolate(totem_active()))) return()
+
+      fires_changed <- tryCatch(
+        store$refresh_fires(),
+        error = function(error) {
+          warning(
+            "Falha na atualização periódica dos focos de calor: ",
+            conditionMessage(error)
+          )
+          FALSE
+        }
+      )
+      if (isTRUE(fires_changed)) send_fire_update()
+
+      # Reativa os observadores das fontes quase em tempo real. Cada fonte
+      # preserva sua própria janela de cache (GLM, GOES e GPM IMERG).
+      totem_live_refresh_trigger(isolate(totem_live_refresh_trigger()) + 1L)
     })
 
     observeEvent(input$open_history, {

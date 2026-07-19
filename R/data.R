@@ -51,9 +51,40 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   territories_path <- territories_candidates[file.exists(territories_candidates)][[1]]
   territories <- normalize_territories(readRDS(territories_path))
 
-  fire_path <- file.path(data_dir, "bdq_focos.rds")
-  if (!file.exists(fire_path)) fire_path <- file.path("data", "bdq_focos.rds")
+  resolve_fire_path <- function() {
+    candidates <- c(
+      file.path(data_dir, "bdq_focos.rds"),
+      file.path("data", "bdq_focos.rds")
+    )
+    existing <- candidates[file.exists(candidates)]
+    if (length(existing)) existing[[1]] else candidates[[1]]
+  }
+  fire_path <- resolve_fire_path()
   fires <- if (file.exists(fire_path)) readRDS(fire_path) else NULL
+  fire_mtime <- if (file.exists(fire_path)) file.info(fire_path)$mtime[[1]] else as.POSIXct(NA)
+
+  refresh_fires <- function(force = FALSE) {
+    new_fire_path <- resolve_fire_path()
+    if (!file.exists(new_fire_path)) return(FALSE)
+    new_fire_mtime <- file.info(new_fire_path)$mtime[[1]]
+    unchanged <- identical(
+      normalizePath(new_fire_path, mustWork = FALSE),
+      normalizePath(fire_path, mustWork = FALSE)
+    ) &&
+      isTRUE(all.equal(new_fire_mtime, fire_mtime))
+    if (!isTRUE(force) && unchanged) return(FALSE)
+
+    new_fires <- tryCatch(readRDS(new_fire_path), error = function(error) {
+      warning("Falha ao recarregar focos de calor: ", conditionMessage(error))
+      NULL
+    })
+    if (is.null(new_fires)) return(FALSE)
+
+    fires <<- new_fires
+    fire_path <<- new_fire_path
+    fire_mtime <<- new_fire_mtime
+    TRUE
+  }
 
   resolve_db_path <- function() {
     candidates <- c(file.path(data_dir, "cams_forecast.duckdb"), file.path("data", "cams_forecast.duckdb"))
@@ -386,6 +417,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     image_cache$reset()
     query_cache$reset()
     unlink(list.files(image_dir, full.names = TRUE), recursive = TRUE, force = TRUE)
+    refresh_fires()
     revision(shiny::isolate(revision()) + 1L)
 
     if (!is.null(old_con) && DBI::dbIsValid(old_con)) {
@@ -402,7 +434,8 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     default_indicator = default_indicator,
     rasters = rasters,
     territories = territories,
-    fires = fires,
+    fires = function() fires,
+    refresh_fires = refresh_fires,
     raster_image = raster_image,
     forecast_horizons = function(id) raster_horizons[[id]],
     normalize_horizon = normalize_horizon,
