@@ -356,7 +356,10 @@ report_scope_panel <- function(scope, data, report, language, timezone, active =
   )
 }
 
-territorial_report_view <- function(report, language, timezone) {
+territorial_report_view <- function(
+  report, language, timezone,
+  logo_src = "pin_obs_horizontal_dark.png"
+) {
   if (is.null(report) || !isTRUE(report$available)) {
     return(div(class = "report-empty-state", tr(language, "report_data_unavailable")))
   }
@@ -405,9 +408,20 @@ territorial_report_view <- function(report, language, timezone) {
     tags$header(
       class = "report-hero",
       div(
-        span(class = "report-kicker", indicator_text(language, report$id, "short", cfg$short)),
-        h2(report$territory$display_name[[1]]),
-        p(tr(language, "report_intro"))
+        class = "report-hero-main",
+        div(
+          class = "report-hero-logo",
+          tags$img(
+            src = logo_src,
+            alt = "Observatório de Clima e Saúde — ICICT — Fiocruz"
+          )
+        ),
+        div(
+          class = "report-hero-copy",
+          span(class = "report-kicker", indicator_text(language, report$id, "short", cfg$short)),
+          h2(report$territory$display_name[[1]]),
+          p(tr(language, "report_intro"))
+        )
       ),
       div(
         class = "report-period",
@@ -474,7 +488,7 @@ territorial_report_html <- function(report, language, timezone) {
   app_css <- paste(css_lines, collapse = "\n")
   report_script <- paste(readLines(asset_path("report.js"), warn = FALSE), collapse = "\n")
   report_script <- gsub("</script", "<\\/script", report_script, fixed = TRUE)
-  logo_path <- asset_path("pin_obs_horizontal_dark.png")
+  logo_path <- asset_path("pin_obs_horizontal.png")
   logo_data <- paste0(
     "data:image/png;base64,",
     jsonlite::base64_enc(readBin(logo_path, what = "raw", n = file.info(logo_path)$size))
@@ -482,57 +496,61 @@ territorial_report_html <- function(report, language, timezone) {
   css <- paste(
     app_css,
     "*,*::before,*::after{box-sizing:border-box}",
-    ":root{color-scheme:dark}",
+    ":root{color-scheme:light;--ink:#102a43;--muted:#52697a;--line:rgba(31,78,95,.2);--glass:#fff;--accent:#007f73}",
     "html,body{width:auto;height:auto;min-height:100%;overflow:auto}",
-    "body{margin:0;line-height:1.4;-webkit-font-smoothing:antialiased}",
+    "body{margin:0;color:var(--ink);background:#eef3f5;line-height:1.4;-webkit-font-smoothing:antialiased}",
     "button,input,select{font:inherit}",
     "[hidden]{display:none!important}",
     ".report-export{width:min(1380px,100%);margin:auto;padding:28px 32px 36px}",
-    ".report-export-masthead{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:16px;padding:13px 17px;background:#0a1922;border:1px solid var(--line);border-radius:14px}",
-    ".report-export-brand{display:flex;align-items:center;gap:16px;min-width:0}",
-    ".report-export-brand img{display:block;width:220px;max-width:42vw;height:auto}",
-    ".report-export-heading{padding-left:16px;border-left:1px solid var(--line)}",
-    ".report-export-heading strong,.report-export-heading small{display:block}",
-    ".report-export-heading strong{font-size:14px}",
-    ".report-export-heading small{margin-top:3px;color:var(--muted);font:9px/1.35 'Space Mono',monospace}",
     ".report-export .territorial-report{padding:0}",
+    ".report-export .report-hero{background:linear-gradient(125deg,#d9f4ef 0%,#e7f0fb 58%,#fff4dc 100%);border-color:#afcdd0;box-shadow:0 10px 30px rgba(23,56,75,.08)}",
+    ".report-export .report-hero-logo{background:#fff;border-color:#c5d6d9}",
+    ".report-export .report-period{color:#29495a}",
+    ".report-export .territorial-report section{background:#fff;border-color:#cbdcdf;box-shadow:0 8px 24px rgba(23,56,75,.06)}",
+    ".report-export .report-metric{background:#f4f8f9;border-color:#cbdcdf}",
+    ".report-export .report-metric.is-accent{background:#dff5f0;border-color:#5cb9aa}",
+    ".report-export .report-metric.is-accent strong,.report-export .report-kicker{color:#006f65}",
+    ".report-export .report-visual-card,.report-export .report-category-row{background:#f5f8fa;border-color:#d5e1e4}",
+    ".report-export .report-category-meta strong{color:#29495a}",
+    ".report-export .report-band-chip{color:color-mix(in srgb,var(--band-color),#102a43 42%);background:color-mix(in srgb,var(--band-color),#fff 86%);border-color:color-mix(in srgb,var(--band-color),#52697a 35%)}",
+    ".report-export .report-scope-tabs{background:#e6eef1;border-color:#c4d4d9}",
+    ".report-export .report-scope-tab{color:#415b6c}",
+    ".report-export .report-scope-tab:hover{color:#0b4f4a;background:#d6ebe7}",
+    ".report-export .report-scope-tab.is-active{color:#fff;background:#007f73}",
+    ".report-export .report-chart-label{color:#405c6c}",
+    ".report-export .report-chart-label strong{color:#17384a}",
+    ".report-export .report-chart-track,.report-export .report-category-track{background:#dbe6e9}",
+    ".report-export .report-chart-track span{background:linear-gradient(90deg,#2563a6,#00a990)}",
+    ".report-export .report-chart-row.is-selected{background:#fff4d6;border-color:#e3aa32}",
+    ".report-export .report-chart-row.is-selected .report-chart-label span,.report-export .report-chart-row.is-selected .report-chart-label strong{color:#8a4b00}",
+    ".report-export .report-chart-row.is-selected .report-chart-track span{background:linear-gradient(90deg,#ef7d32,#f3bd32)}",
+    ".report-export .report-search-control,.report-export .report-page-size-control select{color:#17384a;background:#fff;border-color:#bfd1d7}",
+    ".report-export .report-ranking-table th{color:#3d5968;background:#dfeaec}",
+    ".report-export .report-ranking-table td{color:#29495a;border-color:#dbe5e8}",
+    ".report-export .report-ranking-table tbody tr.is-selected{background:#dff5f0}",
+    ".report-export .report-ranking-table tbody tr:hover{background:#edf7f5}",
+    ".report-export .report-value-cell{color:#102a43!important}",
+    ".report-export .report-table-pagination button{color:#29495a;background:#fff;border-color:#bfd1d7}",
     ".report-export-footer{display:flex;justify-content:space-between;gap:20px;margin-top:14px;padding:12px 2px;color:var(--muted);font:9px/1.45 'Space Mono',monospace}",
     ".report-export .report-search-control::before{content:'⌕';color:var(--muted);font-size:14px}",
     ".report-export .report-search-control>.svg-inline--fa{display:none}",
-    "@media(max-width:760px){.report-export{padding:12px}.report-export-masthead{align-items:flex-start;flex-direction:column}.report-export-brand{width:100%}.report-export-heading{padding-left:12px}.report-export-footer{flex-direction:column}}",
-    "@media print{@page{margin:12mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#071018}.report-export{width:100%;max-width:none;padding:0}.report-export-masthead{break-inside:avoid}.report-scope-tabs,.report-table-toolbar,.report-table-pagination{display:none!important}.report-export .report-scope-panel[hidden]{display:block!important}.report-scope-panel+.report-scope-panel{margin-top:16px;break-before:page}.report-table-scroll{overflow:visible}.report-ranking-table{min-width:0}.report-export-footer{break-inside:avoid}}",
+    "@media(max-width:760px){.report-export{padding:12px}.report-export-footer{flex-direction:column}}",
+    "@media print{@page{margin:12mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.report-export{width:100%;max-width:none;padding:0}.report-hero{break-inside:avoid}.report-scope-tabs,.report-table-toolbar,.report-table-pagination{display:none!important}.report-export .report-scope-panel[hidden]{display:block!important}.report-scope-panel+.report-scope-panel{margin-top:16px;break-before:page}.report-table-scroll{overflow:visible}.report-ranking-table{min-width:0}.report-export-footer{break-inside:avoid}}",
     sep = "\n"
-  )
-  generated_label <- tr(
-    language, "report_generated",
-    report_format_datetime(report$generated_at %||% Sys.time(), language, timezone)
   )
   document <- tags$html(
     tags$head(
       tags$meta(charset = "utf-8"),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
-      tags$meta(name = "color-scheme", content = "dark"),
-      tags$meta(name = "theme-color", content = "#071018"),
+      tags$meta(name = "color-scheme", content = "light"),
+      tags$meta(name = "theme-color", content = "#eef3f5"),
       tags$title(tr(language, "report_title")),
       tags$style(HTML(css))
     ),
     tags$body(
       div(
         class = "report-export",
-        tags$header(
-          class = "report-export-masthead",
-          div(
-            class = "report-export-brand",
-            tags$img(src = logo_data, alt = "Observatório de Clima e Saúde — ICICT — Fiocruz"),
-            div(
-              class = "report-export-heading",
-              strong("AlertAr Saúde"),
-              tags$small(tr(language, "report_title"))
-            )
-          ),
-          tags$small(generated_label)
-        ),
-        territorial_report_view(report, language, timezone),
+        territorial_report_view(report, language, timezone, logo_src = logo_data),
         tags$footer(
           class = "report-export-footer",
           span("Observatório de Clima e Saúde · LIS/ICICT/Fiocruz"),

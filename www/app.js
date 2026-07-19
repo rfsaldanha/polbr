@@ -10,7 +10,6 @@
   let fullscreenEventsBound = false;
   let handlersRegistered = false;
   let urlTotemApplied = false;
-  let timelineAlignmentFrame = null;
 
   function remember(cache, key, promise, limit) {
     cache.set(key, promise);
@@ -725,60 +724,12 @@
     }
   }
 
-  function alignTimelineLabels() {
-    const labelsContainer = document.querySelector(".day-labels");
-    const slider = document.querySelector(".timeline-control .irs");
-    const handle = slider && slider.querySelector(".irs-handle");
-    if (!labelsContainer || !slider || !handle) return;
-
-    const labels = Array.from(labelsContainer.querySelectorAll(".timeline-date-label"));
-    const horizons = labels.map(label => Number(label.dataset.horizon));
-    const finiteHorizons = horizons.filter(Number.isFinite);
-    if (!labels.length || finiteHorizons.length !== labels.length) return;
-
-    const minimum = Math.min(...finiteHorizons);
-    const maximum = Math.max(...finiteHorizons);
-    const span = maximum - minimum;
-    if (!(span > 0)) return;
-
-    const labelsRect = labelsContainer.getBoundingClientRect();
-    const sliderRect = slider.getBoundingClientRect();
-    const handleWidth = handle.getBoundingClientRect().width;
-    const trackStart = sliderRect.left - labelsRect.left + handleWidth / 2;
-    const trackEnd = sliderRect.right - labelsRect.left - handleWidth / 2;
-
-    labels.forEach((label, index) => {
-      const position = (horizons[index] - minimum) / span;
-      label.style.left = (trackStart + position * (trackEnd - trackStart)) + "px";
-    });
-  }
-
-  function scheduleTimelineAlignment() {
-    if (timelineAlignmentFrame !== null) cancelAnimationFrame(timelineAlignmentFrame);
-    timelineAlignmentFrame = requestAnimationFrame(() => {
-      timelineAlignmentFrame = null;
-      alignTimelineLabels();
-    });
-  }
-
-  function bindTimelineAlignment() {
-    const control = document.querySelector(".timeline-control");
-    if (!control || control.dataset.timelineAlignmentBound === "true") return;
-    control.dataset.timelineAlignmentBound = "true";
-    new MutationObserver(scheduleTimelineAlignment).observe(control, {childList: true, subtree: true});
-    new ResizeObserver(scheduleTimelineAlignment).observe(control);
-    window.addEventListener("resize", scheduleTimelineAlignment, {passive: true});
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleTimelineAlignment);
-    scheduleTimelineAlignment();
-  }
-
   function bindLocalControls() {
     bindDetailsToggle();
     bindMapAttribution();
     bindStarField();
     bindTotemToggle();
     bindCompactNativeSelects();
-    bindTimelineAlignment();
   }
 
   function registerHandlers() {
