@@ -112,7 +112,15 @@ forecast_chart_modal <- function(language, title) {
 territorial_report_modal <- function(language) {
   modalDialog(
     title = tagList(icon("file-lines"), tr(language, "report_title")),
-    uiOutput("territorial_report"),
+    div(
+      class = "report-output-shell",
+      uiOutput("territorial_report", class = "territorial-report-output"),
+      div(
+        class = "report-loading-state", role = "status", `aria-live` = "polite",
+        span(class = "report-loading-spinner", `aria-hidden` = "true"),
+        span(tr(language, "report_loading"))
+      )
+    ),
     footer = tagList(
       downloadButton(
         "download_territorial_report", tr(language, "report_download_html"),
@@ -329,7 +337,7 @@ report_scope_panel <- function(scope, data, report, language, timezone, active =
   div(
     class = paste("report-scope-panel", if (active) "is-active" else ""),
     `data-report-scope` = scope,
-    if (!active) hidden = "hidden" else NULL,
+    hidden = if (!active) "hidden" else NULL,
     div(
       class = "report-visual-grid",
       div(
@@ -354,7 +362,7 @@ territorial_report_view <- function(report, language, timezone) {
   }
   cfg <- report$cfg
   selected <- report$selected
-  unit <- pretty_unit(cfg$unit)
+  unit <- report_unit_text(cfg$unit)
   period_start <- report_format_datetime(report$period[[1]], language, timezone)
   period_end <- report_format_datetime(report$period[[2]], language, timezone)
   report_reference_note <- report$reference_note %||% ""
@@ -455,31 +463,95 @@ territorial_report_view <- function(report, language, timezone) {
 }
 
 territorial_report_html <- function(report, language, timezone) {
-  css_path <- file.path("www", "styles.css")
-  script_path <- file.path("www", "report.js")
-  app_css <- if (file.exists(css_path)) paste(readLines(css_path, warn = FALSE), collapse = "\n") else ""
-  report_script <- if (file.exists(script_path)) paste(readLines(script_path, warn = FALSE), collapse = "\n") else ""
+  asset_path <- function(filename) {
+    candidates <- unique(c(file.path("www", filename), file.path(getwd(), "www", filename)))
+    existing <- candidates[file.exists(candidates)]
+    if (!length(existing)) stop("Recurso do relatório não encontrado: ", filename)
+    existing[[1]]
+  }
+  css_lines <- readLines(asset_path("styles.css"), warn = FALSE)
+  css_lines <- css_lines[!grepl("^\\s*@import\\s+url", css_lines)]
+  app_css <- paste(css_lines, collapse = "\n")
+  report_script <- paste(readLines(asset_path("report.js"), warn = FALSE), collapse = "\n")
+  report_script <- gsub("</script", "<\\/script", report_script, fixed = TRUE)
+  logo_path <- asset_path("pin_obs_horizontal_dark.png")
+  logo_data <- paste0(
+    "data:image/png;base64,",
+    jsonlite::base64_enc(readBin(logo_path, what = "raw", n = file.info(logo_path)$size))
+  )
   css <- paste(
     app_css,
+    "*,*::before,*::after{box-sizing:border-box}",
+    ":root{color-scheme:dark}",
     "html,body{width:auto;height:auto;min-height:100%;overflow:auto}",
-    ".report-export{width:min(1380px,100%);margin:auto;padding:32px}",
+    "body{margin:0;line-height:1.4;-webkit-font-smoothing:antialiased}",
+    "button,input,select{font:inherit}",
+    "[hidden]{display:none!important}",
+    ".report-export{width:min(1380px,100%);margin:auto;padding:28px 32px 36px}",
+    ".report-export-masthead{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:16px;padding:13px 17px;background:#0a1922;border:1px solid var(--line);border-radius:14px}",
+    ".report-export-brand{display:flex;align-items:center;gap:16px;min-width:0}",
+    ".report-export-brand img{display:block;width:220px;max-width:42vw;height:auto}",
+    ".report-export-heading{padding-left:16px;border-left:1px solid var(--line)}",
+    ".report-export-heading strong,.report-export-heading small{display:block}",
+    ".report-export-heading strong{font-size:14px}",
+    ".report-export-heading small{margin-top:3px;color:var(--muted);font:9px/1.35 'Space Mono',monospace}",
     ".report-export .territorial-report{padding:0}",
-    "@media(max-width:760px){.report-export{padding:12px}}",
+    ".report-export-footer{display:flex;justify-content:space-between;gap:20px;margin-top:14px;padding:12px 2px;color:var(--muted);font:9px/1.45 'Space Mono',monospace}",
+    ".report-export .report-search-control::before{content:'⌕';color:var(--muted);font-size:14px}",
+    ".report-export .report-search-control>.svg-inline--fa{display:none}",
+    "@media(max-width:760px){.report-export{padding:12px}.report-export-masthead{align-items:flex-start;flex-direction:column}.report-export-brand{width:100%}.report-export-heading{padding-left:12px}.report-export-footer{flex-direction:column}}",
+    "@media print{@page{margin:12mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#071018}.report-export{width:100%;max-width:none;padding:0}.report-export-masthead{break-inside:avoid}.report-scope-tabs,.report-table-toolbar,.report-table-pagination{display:none!important}.report-export .report-scope-panel[hidden]{display:block!important}.report-scope-panel+.report-scope-panel{margin-top:16px;break-before:page}.report-table-scroll{overflow:visible}.report-ranking-table{min-width:0}.report-export-footer{break-inside:avoid}}",
     sep = "\n"
+  )
+  generated_label <- tr(
+    language, "report_generated",
+    report_format_datetime(report$generated_at %||% Sys.time(), language, timezone)
   )
   document <- tags$html(
     tags$head(
       tags$meta(charset = "utf-8"),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+      tags$meta(name = "color-scheme", content = "dark"),
+      tags$meta(name = "theme-color", content = "#071018"),
       tags$title(tr(language, "report_title")),
       tags$style(HTML(css))
     ),
     tags$body(
-      div(class = "report-export", territorial_report_view(report, language, timezone)),
+      div(
+        class = "report-export",
+        tags$header(
+          class = "report-export-masthead",
+          div(
+            class = "report-export-brand",
+            tags$img(src = logo_data, alt = "Observatório de Clima e Saúde — ICICT — Fiocruz"),
+            div(
+              class = "report-export-heading",
+              strong("AlertAr Saúde"),
+              tags$small(tr(language, "report_title"))
+            )
+          ),
+          tags$small(generated_label)
+        ),
+        territorial_report_view(report, language, timezone),
+        tags$footer(
+          class = "report-export-footer",
+          span("Observatório de Clima e Saúde · LIS/ICICT/Fiocruz"),
+          span(paste(
+            indicator_text(language, report$id, "short", report$cfg$short),
+            report$territory$display_name[[1]], sep = " · "
+          ))
+        )
+      ),
       tags$script(HTML(report_script))
     )
   )
-  paste0("<!doctype html>\n", as.character(document))
+  rendered <- htmltools::renderTags(document)
+  html <- sub(
+    "<html>",
+    paste0("<html>\n<head>\n", as.character(rendered$head), "\n</head>"),
+    as.character(rendered$html), fixed = TRUE
+  )
+  paste0("<!doctype html>\n", html)
 }
 
 app_ui <- function(store) {

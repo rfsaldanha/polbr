@@ -171,7 +171,7 @@ report_category_specs <- function(cfg, language) {
     }
     list(
       column = sprintf("category_%d_hours", index),
-      label = paste(label, pretty_unit(cfg$unit)),
+      label = paste(label, report_unit_text(cfg$unit)),
       color = color
     )
   }, seq_len(length(breaks) - 1L), head(breaks, -1L), tail(breaks, -1L), cfg$colors)
@@ -866,6 +866,7 @@ app_server <- function(store) {
     animation_duration_ms <- 30 * 1000
     totem_overview_duration_ms <- 2200
     totem_overview_hold_ms <- 1000
+    totem_overview_zoom <- 2.25
 
     update_play_button <- function() {
       language <- isolate(current_language())
@@ -920,7 +921,7 @@ app_server <- function(store) {
           mapgl::fly_to(
             mapgl::maplibre_proxy("forecast_map", session),
             center = regional_view$center,
-            zoom = regional_view$zoom,
+            zoom = totem_overview_zoom,
             duration = totem_overview_duration_ms,
             essential = TRUE
           ),
