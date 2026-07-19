@@ -49,12 +49,13 @@ Para uma base multinacional e multiterritorial, use `territories.rds` (objeto `s
 Os rasters presentes determinam as camadas exibidas. O banco `cams_forecast.duckdb` habilita leituras e downloads territoriais; novas tabelas podem usar `territory_id`, enquanto as tabelas municipais legadas continuam compativeis. Arquivos `wind_1.json` a `wind_121.json` habilitam a animacao de vento.
 
 O controle **Imagens meteorológicas** oferece observações em tempo quase real
-do GOES-East, reprojetadas para Web Mercator e distribuídas como tiles pelo
-NASA GIBS. A interface separa fonte e produto para aceitar novos provedores sem
-alterar a estrutura do painel. Nesta primeira versão estão disponíveis cores
-naturais, infravermelho térmico, massas de ar, poeira, temperatura de incêndios
-e canal visível. A camada exige acesso à internet e é atualizada a cada dez
-minutos; o horário efetivamente servido pelo provedor aparece no fuso escolhido.
+distribuídas como tiles Web Mercator pelo NASA GIBS. Para o GOES-East estão
+disponíveis cores naturais, infravermelho térmico, massas de ar, poeira,
+temperatura de incêndios e canal visível. A fonte GPM IMERG Early Run V07
+acrescenta a taxa de precipitação média em 30 minutos, em mm/h, com resolução
+global de 0,1° e latência nominal próxima de quatro horas. O app consulta a
+atualização dessa camada a cada 30 minutos e exibe a legenda oficial do GIBS. O
+horário efetivamente servido pelo provedor aparece no fuso escolhido.
 
 A camada **Raios · GLM/NOAA** consulta o produto vetorial `GLM-L2-LCFA` do
 GOES-East no NOAA Open Data Dissemination. Os flashes de boa qualidade dos cinco

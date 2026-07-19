@@ -401,7 +401,7 @@ app_server <- function(store, glm_store = NULL) {
           productId = product$id,
           refreshKey = refresh_bucket,
           maxzoom = product$config$maxzoom %||% source$config$maxzoom,
-          opacity = .78,
+          opacity = product$config$opacity %||% source$config$opacity %||% .78,
           attribution = source$config$provider
         )
       )
@@ -1160,8 +1160,19 @@ app_server <- function(store, glm_store = NULL) {
       source_id <- input$weather_source %||% names(weather_catalog)[[1]]
       if (!source_id %in% names(weather_catalog)) source_id <- names(weather_catalog)[[1]]
       source <- weather_catalog[[source_id]]
+      product_id <- input$weather_product %||% names(source$products)[[1]]
+      if (!product_id %in% names(source$products)) product_id <- names(source$products)[[1]]
+      product <- source$products[[product_id]]
+      observation_input <- input$weather_observation_time
+      observation_value <- if (is.list(observation_input)) {
+        matches_selection <- identical(as.character(observation_input$sourceId), source_id) &&
+          identical(as.character(observation_input$productId), product_id)
+        if (matches_selection) observation_input$observedAt else NA_character_
+      } else {
+        observation_input
+      }
       observed_at <- suppressWarnings(as.POSIXct(
-        input$weather_observation_time,
+        observation_value,
         format = "%Y-%m-%dT%H:%M:%OSZ", tz = "UTC"
       ))
       timestamp <- if (length(observed_at) && !is.na(observed_at)) {
@@ -1179,7 +1190,13 @@ app_server <- function(store, glm_store = NULL) {
         div(
           tags$strong(timestamp),
           tags$small(tr(language, "weather_refresh", source$refresh_minutes, timezone_code(timezone))),
-          tags$small(source$provider)
+          if (!is.null(product$detail_key)) tags$small(tr(language, product$detail_key)),
+          tags$small(source$provider),
+          if (!is.null(product$legend_url)) tags$img(
+            class = "weather-product-legend",
+            src = product$legend_url,
+            alt = tr(language, product$legend_alt_key %||% "weather_legend_alt")
+          )
         )
       )
     })
@@ -1216,6 +1233,7 @@ app_server <- function(store, glm_store = NULL) {
         )
       )
     })
+    outputOptions(output, "lightning_status", suspendWhenHidden = FALSE)
 
     observeEvent(input$totem_mode, {
       active <- isTRUE(input$totem_mode)

@@ -731,7 +731,12 @@
       if (!response.ok) return;
       const observedAt = response.headers.get("layer-time-actual");
       if (observedAt && window.Shiny && typeof Shiny.setInputValue === "function") {
-        Shiny.setInputValue(message.timeInputId, observedAt, {priority: "event"});
+        Shiny.setInputValue(message.timeInputId, {
+          observedAt: observedAt,
+          sourceId: message.sourceId,
+          productId: message.productId,
+          receivedAt: Date.now()
+        }, {priority: "event"});
       }
     } catch (error) {
       console.debug("Horario da imagem meteorologica indisponivel:", error);

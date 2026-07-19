@@ -176,11 +176,36 @@ weather_observation_catalog <- function() {
           layer = "GOES-East_ABI_Band2_Red_Visible_1km"
         )
       )
+    ),
+    gpm_imerg = list(
+      label_key = "weather_source_gpm_imerg",
+      provider = "NASA GIBS · GPM IMERG Early V07",
+      collection = "nrt",
+      refresh_minutes = 30L,
+      maxzoom = 6L,
+      tile_matrix_set = "GoogleMapsCompatible_Level6",
+      products = list(
+        precipitation_rate_30min = list(
+          label_key = "weather_product_imerg_precipitation",
+          detail_key = "weather_product_imerg_detail",
+          legend_alt_key = "weather_product_imerg_legend_alt",
+          layer = "IMERG_Precipitation_Rate_30min_v7_NRT",
+          opacity = .84,
+          legend_url = "https://gibs.earthdata.nasa.gov/legends/GPM_Precipitation_Rate_H.svg"
+        )
+      )
     )
   )
 }
 
 weather_observation_tile_url <- function(source, product) {
+  collection <- if (!is.null(product$collection)) {
+    product$collection
+  } else if (!is.null(source$collection)) {
+    source$collection
+  } else {
+    "best"
+  }
   tile_matrix_set <- if (!is.null(product$tile_matrix_set)) {
     product$tile_matrix_set
   } else {
@@ -188,9 +213,10 @@ weather_observation_tile_url <- function(source, product) {
   }
   sprintf(
     paste0(
-      "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/%s/",
+      "https://gibs.earthdata.nasa.gov/wmts/epsg3857/%s/%s/",
       "default/default/%s/{z}/{y}/{x}.png"
     ),
+    collection,
     product$layer,
     tile_matrix_set
   )
