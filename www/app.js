@@ -9,6 +9,7 @@
   const weatherObservationStates = new Map();
   const forecastOpacityRequests = new Map();
   const lightningOverlays = new Map();
+  const firePulseStates = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
   let handlersRegistered = false;
@@ -295,7 +296,8 @@
     const ctx = canvas.getContext("2d");
     const state = {
       canvas, ctx, flashes: [], active: false, moving: false,
-      frame: null, lastDraw: 0, windowSeconds: 300
+      frame: null, lastDraw: 0, windowSeconds: 300,
+      initialized: false, knownKeys: new Set()
     };
 
     function resize() {
@@ -340,14 +342,18 @@
       const width = el.clientWidth;
       const height = el.clientHeight;
       const visible = [];
-      const ageBands = 5;
+      const ageBands = 20;
       const energyBands = 3;
-      const phaseBands = 4;
-      const pulseCyclesPerSecond = .4;
-      const buckets = Array.from(
-        {length: ageBands * energyBands * phaseBands},
+      const burstBands = 18;
+      const residualBuckets = Array.from(
+        {length: ageBands * energyBands},
         () => ({glow: new Path2D(), core: new Path2D(), count: 0})
       );
+      const burstBuckets = Array.from(
+        {length: burstBands * energyBands},
+        () => ({ring: new Path2D(), flash: new Path2D(), ringCount: 0, flashCount: 0})
+      );
+      const animationNow = performance.now() / 1000;
       ctx.globalCompositeOperation = "lighter";
 
       for (let index = 0; index < state.flashes.length; index++) {
@@ -355,6 +361,8 @@
         const age = Math.max(0, now - flash.observedAt);
         if (!Number.isFinite(age) || age > state.windowSeconds) continue;
         visible.push(flash);
+        const burstAge = Number.isFinite(flash.burstAt) ? animationNow - flash.burstAt : Infinity;
+        if (burstAge < 0) continue;
         const point = map.project([flash.lon, flash.lat]);
         if (
           !Number.isFinite(point.x) || !Number.isFinite(point.y) ||
@@ -364,34 +372,61 @@
         const energyLevel = Math.max(0, Math.min(1, (Math.log10(Math.max(flash.energy, 1e-15)) + 15) / 4));
         const ageBand = Math.min(ageBands - 1, Math.floor(age / state.windowSeconds * ageBands));
         const energyBand = Math.min(energyBands - 1, Math.floor(energyLevel * energyBands));
-        const phaseBand = index % phaseBands;
-        const bucketIndex = ageBand * energyBands * phaseBands + energyBand * phaseBands + phaseBand;
-        const phase = (now * pulseCyclesPerSecond + phaseBand / phaseBands) % 1;
-        const pulse = (1 - Math.cos(phase * Math.PI * 2)) / 2;
-        const coreRadius = 1.15 + energyBand * .65;
-        const glowRadius = coreRadius + 2.4 + pulse * 5.2;
-        buckets[bucketIndex].glow.moveTo(point.x + glowRadius, point.y);
-        buckets[bucketIndex].glow.arc(point.x, point.y, glowRadius, 0, Math.PI * 2);
-        buckets[bucketIndex].core.moveTo(point.x + coreRadius, point.y);
-        buckets[bucketIndex].core.arc(point.x, point.y, coreRadius, 0, Math.PI * 2);
-        buckets[bucketIndex].count++;
+        const residualIndex = ageBand * energyBands + energyBand;
+        const coreRadius = .9 + energyBand * .5;
+        const glowRadius = coreRadius + 1.8;
+        residualBuckets[residualIndex].glow.moveTo(point.x + glowRadius, point.y);
+        residualBuckets[residualIndex].glow.arc(point.x, point.y, glowRadius, 0, Math.PI * 2);
+        residualBuckets[residualIndex].core.moveTo(point.x + coreRadius, point.y);
+        residualBuckets[residualIndex].core.arc(point.x, point.y, coreRadius, 0, Math.PI * 2);
+        residualBuckets[residualIndex].count++;
+
+        if (burstAge <= 2) {
+          const progress = Math.max(0, Math.min(1, burstAge / 2));
+          const progressBand = Math.min(burstBands - 1, Math.floor(progress * burstBands));
+          const burstIndex = progressBand * energyBands + energyBand;
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const ringRadius = coreRadius + 2.2 + eased * 10;
+          burstBuckets[burstIndex].ring.moveTo(point.x + ringRadius, point.y);
+          burstBuckets[burstIndex].ring.arc(point.x, point.y, ringRadius, 0, Math.PI * 2);
+          burstBuckets[burstIndex].ringCount++;
+          if (burstAge <= .4) {
+            const flashProgress = burstAge / .4;
+            const flashRadius = coreRadius + (1 - flashProgress) * 3;
+            burstBuckets[burstIndex].flash.moveTo(point.x + flashRadius, point.y);
+            burstBuckets[burstIndex].flash.arc(point.x, point.y, flashRadius, 0, Math.PI * 2);
+            burstBuckets[burstIndex].flashCount++;
+          }
+        }
       }
 
       state.flashes = visible;
       for (let ageBand = ageBands - 1; ageBand >= 0; ageBand--) {
         const fade = Math.pow(1 - (ageBand + .5) / ageBands, 1.35);
         for (let energyBand = 0; energyBand < energyBands; energyBand++) {
-          for (let phaseBand = 0; phaseBand < phaseBands; phaseBand++) {
-            const bucketIndex = ageBand * energyBands * phaseBands + energyBand * phaseBands + phaseBand;
-            const bucket = buckets[bucketIndex];
-            if (!bucket.count) continue;
-            const phase = (now * pulseCyclesPerSecond + phaseBand / phaseBands) % 1;
-            const pulse = (1 - Math.cos(phase * Math.PI * 2)) / 2;
-            const alpha = fade * (.12 + energyBand * .08) * (1 - pulse * .52);
-            ctx.fillStyle = `rgba(255,177,43,${alpha})`;
-            ctx.fill(bucket.glow);
-            ctx.fillStyle = `rgba(255,249,194,${Math.min(1, alpha * 2.8)})`;
-            ctx.fill(bucket.core);
+          const bucket = residualBuckets[ageBand * energyBands + energyBand];
+          if (!bucket.count) continue;
+          const alpha = fade * (.07 + energyBand * .04);
+          ctx.fillStyle = `rgba(255,177,43,${alpha})`;
+          ctx.fill(bucket.glow);
+          ctx.fillStyle = `rgba(255,246,181,${Math.min(1, alpha * 2.7)})`;
+          ctx.fill(bucket.core);
+        }
+      }
+
+      for (let progressBand = 0; progressBand < burstBands; progressBand++) {
+        const progress = (progressBand + .5) / burstBands;
+        const flashProgress = Math.min(1, progress * 5);
+        for (let energyBand = 0; energyBand < energyBands; energyBand++) {
+          const bucket = burstBuckets[progressBand * energyBands + energyBand];
+          if (bucket.ringCount) {
+            ctx.strokeStyle = `rgba(255,190,61,${Math.pow(1 - progress, 1.35) * (.55 + energyBand * .1)})`;
+            ctx.lineWidth = 1.2 + energyBand * .3;
+            ctx.stroke(bucket.ring);
+          }
+          if (bucket.flashCount) {
+            ctx.fillStyle = `rgba(255,252,220,${(1 - flashProgress) * (.76 + energyBand * .1)})`;
+            ctx.fill(bucket.flash);
           }
         }
       }
@@ -405,8 +440,41 @@
       else stop();
     };
     state.setFlashes = function(flashes, windowSeconds) {
-      state.flashes = flashes;
       state.windowSeconds = Number(windowSeconds) || 300;
+      if (!flashes.length) {
+        state.flashes = [];
+        state.knownKeys.clear();
+        state.initialized = false;
+        clear();
+        return;
+      }
+
+      const previous = new Map(state.flashes.map(flash => [flash.key, flash]));
+      const firstLoad = !state.initialized || !state.flashes.length;
+      const newFlashes = [];
+      for (const flash of flashes) {
+        const prior = previous.get(flash.key);
+        flash.burstAt = prior && Number.isFinite(prior.burstAt) ? prior.burstAt : null;
+        if (!firstLoad && !state.knownKeys.has(flash.key)) newFlashes.push(flash);
+      }
+
+      if (newFlashes.length) {
+        newFlashes.sort((a, b) => a.observedAt - b.observedAt);
+        const firstTime = newFlashes[0].observedAt;
+        const lastTime = newFlashes[newFlashes.length - 1].observedAt;
+        const span = lastTime - firstTime;
+        const animationStart = performance.now() / 1000;
+        for (let index = 0; index < newFlashes.length; index++) {
+          const sequence = span > 0
+            ? (newFlashes[index].observedAt - firstTime) / span
+            : index / Math.max(1, newFlashes.length - 1);
+          newFlashes[index].burstAt = animationStart + sequence * 4;
+        }
+      }
+
+      state.flashes = flashes;
+      state.knownKeys = new Set(flashes.map(flash => flash.key));
+      state.initialized = true;
       if (state.active) start();
     };
     new ResizeObserver(resize).observe(el);
@@ -459,9 +527,104 @@
         energy: Number(energy[index]),
         observedAt: Number(observedAt[index])
       };
-      if (Object.values(flash).every(Number.isFinite)) flashes.push(flash);
+      if (Object.values(flash).every(Number.isFinite)) {
+        flash.key = [
+          flash.observedAt,
+          flash.lat.toFixed(5),
+          flash.lon.toFixed(5),
+          flash.energy.toExponential(4)
+        ].join("|");
+        flashes.push(flash);
+      }
     }
     overlay.setFlashes(flashes, message.windowSeconds);
+  }
+
+  function makeFirePulse(map, layerId) {
+    const glowLayerId = layerId + "-pulse";
+    const state = {
+      active: false,
+      frame: null,
+      lastDraw: 0
+    };
+
+    function ensureGlowLayer() {
+      const pointLayer = map.getLayer(layerId);
+      if (!pointLayer) return false;
+      if (!map.getLayer(glowLayerId)) {
+        const glowLayer = {
+          id: glowLayerId,
+          type: "circle",
+          source: pointLayer.source,
+          paint: {
+            "circle-radius": 4,
+            "circle-color": "#ff2419",
+            "circle-opacity": .24,
+            "circle-blur": .65,
+            "circle-stroke-width": 0
+          }
+        };
+        if (pointLayer["source-layer"]) glowLayer["source-layer"] = pointLayer["source-layer"];
+        if (pointLayer.filter) glowLayer.filter = pointLayer.filter;
+        map.addLayer(glowLayer, layerId);
+      }
+      return true;
+    }
+
+    function stop() {
+      if (state.frame) cancelAnimationFrame(state.frame);
+      state.frame = null;
+    }
+
+    function start() {
+      if (!state.active || state.frame) return;
+      state.frame = requestAnimationFrame(draw);
+    }
+
+    function draw(timestamp) {
+      state.frame = null;
+      if (!state.active || !ensureGlowLayer()) return;
+      if (timestamp - state.lastDraw < 40) {
+        start();
+        return;
+      }
+      state.lastDraw = timestamp;
+      const phase = (timestamp / 1000 * .25) % 1;
+      const pulse = (1 - Math.cos(phase * Math.PI * 2)) / 2;
+      map.setPaintProperty(glowLayerId, "circle-radius", 4 + pulse * 5.5);
+      map.setPaintProperty(glowLayerId, "circle-opacity", .25 * (1 - pulse * .78));
+      map.setPaintProperty(glowLayerId, "circle-blur", .62 + pulse * .22);
+      map.setPaintProperty(layerId, "circle-radius", 2.35 + pulse * .45);
+      map.setPaintProperty(layerId, "circle-opacity", .94 - pulse * .08);
+      start();
+    }
+
+    state.setActive = function(active) {
+      state.active = Boolean(active);
+      if (!ensureGlowLayer()) return;
+      map.setLayoutProperty(glowLayerId, "visibility", state.active ? "visible" : "none");
+      if (state.active) start();
+      else stop();
+    };
+    return state;
+  }
+
+  async function updateFirePulse(message) {
+    const el = getMapElement(message.mapId);
+    if (!el) return;
+    let attempts = 0;
+    const layerId = message.layerId || "fires";
+    while ((!el.map || !el.map.isStyleLoaded() || !el.map.getLayer(layerId)) && attempts++ < 80) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!el.map || !el.map.getLayer(layerId)) return;
+    const stateKey = message.mapId + ":" + layerId;
+    let state = firePulseStates.get(stateKey);
+    if (!state) {
+      state = makeFirePulse(el.map, layerId);
+      firePulseStates.set(stateKey, state);
+    }
+    state.setActive(Boolean(message.active));
   }
 
   async function updateRaster(message) {
@@ -1020,6 +1183,7 @@
     handlersRegistered = true;
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:lightning", updateLightning);
+    Shiny.addCustomMessageHandler("alertar:fire-pulse", updateFirePulse);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:forecast-opacity", updateForecastOpacity);
     Shiny.addCustomMessageHandler("alertar:weather-observation", updateWeatherObservation);

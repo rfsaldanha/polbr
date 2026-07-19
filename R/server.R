@@ -295,8 +295,8 @@ app_server <- function(store, glm_store = NULL) {
         map <- map |>
           mapgl::add_circle_layer(
             id = "fires", source = fires, circle_radius = 2.5,
-            circle_color = "#ff6b35", circle_opacity = .88,
-            circle_stroke_color = "#fff1d6", circle_stroke_width = .5,
+            circle_color = "#ff3b30", circle_opacity = .92,
+            circle_stroke_width = 0,
             visibility = "none"
           )
       }
@@ -563,6 +563,10 @@ app_server <- function(store, glm_store = NULL) {
       visible <- isTRUE(input$show_fires)
       mapgl::maplibre_proxy("forecast_map", session) |>
         mapgl::set_layout_property("fires", "visibility", if (visible) "visible" else "none")
+      session$sendCustomMessage(
+        "alertar:fire-pulse",
+        list(mapId = session$ns("forecast_map"), active = visible, layerId = "fires")
+      )
     })
 
     update_selected_territory <- function() {
