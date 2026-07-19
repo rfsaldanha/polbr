@@ -1,5 +1,8 @@
-chart_reference <- function(value, label, detail, color, url) {
-  list(value = value, label = label, detail = detail, color = color, url = url)
+chart_reference <- function(value, label, detail, color, url, averaging_hours = NULL) {
+  list(
+    value = value, label = label, detail = detail, color = color, url = url,
+    averaging_hours = averaging_hours
+  )
 }
 
 indicator_catalog <- function() {
@@ -9,7 +12,7 @@ indicator_catalog <- function() {
 
   list(
     iqar = list(
-      label = "Qualidade do ar", short = "IQAr", unit = "indice",
+      label = "Qualidade do ar", short = "IQAr", unit = "index",
       file = "iqar.nc", table = "iqar_mun_forecast", interval = 3,
       scale = 1, offset = 0, range = c(0, 240), digits = 0,
       colors = c("#34d399", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
@@ -30,7 +33,7 @@ indicator_catalog <- function() {
       continuous_palette = TRUE,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 15, 25, 37.5, 50, 75, Inf),
-      references = list(chart_reference(15, "OMS 2021", "15 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      references = list(chart_reference(15, "OMS 2021", "15 µg/m³ · média 24h", "#ffd166", who_air_url, 24)),
       reference_note = "Referência OMS de curta duração. A curva mostra o passo nativo, não a média móvel de 24h.",
       description = "Material particulado fino, capaz de atingir as regioes profundas dos pulmoes."
     ),
@@ -41,7 +44,7 @@ indicator_catalog <- function() {
       continuous_palette = TRUE,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 45, 50, 75, 100, 150, Inf),
-      references = list(chart_reference(45, "OMS 2021", "45 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      references = list(chart_reference(45, "OMS 2021", "45 µg/m³ · média 24h", "#ffd166", who_air_url, 24)),
       reference_note = "Referência OMS de curta duração. A curva mostra o passo nativo, não a média móvel de 24h.",
       description = "Particulas inalaveis associadas a poeira, emissoes, industria e queimadas."
     ),
@@ -52,7 +55,7 @@ indicator_catalog <- function() {
       continuous_palette = TRUE,
       colors = c("#0ea5e9", "#22d3ee", "#a3e635", "#facc15", "#fb923c", "#f43f5e", "#a855f7", "#701a75"),
       breaks = c(-Inf, 20, 40, 60, 80, 100, 120, 160, Inf),
-      references = list(chart_reference(100, "OMS 2021", "100 µg/m³ · máxima média 8h", "#ffd166", who_air_url)),
+      references = list(chart_reference(100, "OMS 2021", "100 µg/m³ · máxima média 8h", "#ffd166", who_air_url, 8)),
       reference_note = "Referência OMS para a máxima média de 8h. A curva mostra previsões a cada 3h.",
       description = "Ozonio troposferico, poluente secundario irritante para as vias respiratorias."
     ),
@@ -63,7 +66,7 @@ indicator_catalog <- function() {
       continuous_palette = TRUE,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 1, 4, 9, 11, 13, Inf),
-      references = list(chart_reference(4 * 24.45 / 28.0101, "OMS 2021", "4 mg/m³ ≈ 3,5 ppm · média 24h", "#ffd166", who_air_url)),
+      references = list(chart_reference(4 * 24.45 / 28.0101, "OMS 2021", "4 mg/m³ ≈ 3,5 ppm · média 24h", "#ffd166", who_air_url, 24)),
       reference_note = "Referência OMS de 4 mg/m³ em 24h, convertida aproximadamente para ppm a 25 °C.",
       description = "Gas gerado por combustao incompleta, especialmente veiculos, industria e queimadas."
     ),
@@ -74,7 +77,7 @@ indicator_catalog <- function() {
       continuous_palette = TRUE,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 10, 25, 50, 120, 200, Inf),
-      references = list(chart_reference(25, "OMS 2021", "25 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      references = list(chart_reference(25, "OMS 2021", "25 µg/m³ · média 24h", "#ffd166", who_air_url, 24)),
       reference_note = "Referência OMS de curta duração. A curva mostra previsões a cada 3h, não a média móvel de 24h.",
       description = "Gas reativo ligado principalmente a emissoes veiculares e processos industriais."
     ),
@@ -85,7 +88,7 @@ indicator_catalog <- function() {
       continuous_palette = TRUE,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
       breaks = c(-Inf, 5, 20, 40, 50, 125, Inf),
-      references = list(chart_reference(40, "OMS 2021", "40 µg/m³ · média 24h", "#ffd166", who_air_url)),
+      references = list(chart_reference(40, "OMS 2021", "40 µg/m³ · média 24h", "#ffd166", who_air_url, 24)),
       reference_note = "Referência OMS de curta duração. A curva mostra previsões a cada 3h, não a média móvel de 24h.",
       description = "Gas irritante associado a combustiveis com enxofre e a processos industriais."
     ),
@@ -99,7 +102,7 @@ indicator_catalog <- function() {
       description = "Temperatura do ar prevista proxima a superficie."
     ),
     uv = list(
-      label = "Radiacao ultravioleta", short = "Indice UV", unit = "indice",
+      label = "Radiacao ultravioleta", short = "Indice UV", unit = "index",
       file = "cams_forecast_uv.nc", table = "uv_mun_forecast", interval = 1,
       scale = 40, offset = 0, range = c(0, 14), digits = 1,
       colors = c("#22d3ee", "#84cc16", "#facc15", "#fb923c", "#ef4444", "#a855f7"),
@@ -276,14 +279,24 @@ timezone_catalog <- function() {
       "BRT", "UTC", "AMT", "ACT", "FNT", "MEX", "CAM", "COT",
       "PET", "VET", "BOT", "CHL", "ART", "UYT", "AST", "CUB"
     ),
-    label = c(
-      "BRT · Brasília", "UTC · Tempo Universal Coordenado",
-      "AMT · Manaus", "ACT · Rio Branco", "FNT · Fernando de Noronha",
-      "MEX · Cidade do México", "CAM · Guatemala", "COT · Bogotá",
-      "PET · Lima", "VET · Caracas", "BOT · La Paz", "CHL · Santiago",
-      "ART · Buenos Aires", "UYT · Montevidéu", "AST · Caribe", "CUB · Havana"
+    label_key = c(
+      "timezone_brasilia", "timezone_utc", "timezone_manaus",
+      "timezone_rio_branco", "timezone_noronha", "timezone_mexico_city",
+      "timezone_guatemala", "timezone_bogota", "timezone_lima",
+      "timezone_caracas", "timezone_la_paz", "timezone_santiago",
+      "timezone_buenos_aires", "timezone_montevideo", "timezone_caribbean",
+      "timezone_havana"
     ),
     stringsAsFactors = FALSE
+  )
+}
+
+timezone_full_labels <- function(language = "pt") {
+  catalog <- timezone_catalog()
+  paste(
+    catalog$code,
+    vapply(catalog$label_key, function(key) tr(language, key), character(1)),
+    sep = " · "
   )
 }
 
@@ -306,11 +319,16 @@ in_timezone <- function(time, timezone) {
   )
 }
 
-pretty_unit <- function(unit) {
+localized_unit <- function(unit, language = "pt") {
   switch(
     unit,
-    "ug/m3" = HTML("&micro;g/m&sup3;"),
-    "C" = HTML("&deg;C"),
+    "ug/m3" = "µg/m³",
+    "C" = "°C",
+    "index" = tr(language, "unit_index"),
     unit
   )
+}
+
+pretty_unit <- function(unit, language = "pt") {
+  HTML(htmltools::htmlEscape(localized_unit(unit, language)))
 }

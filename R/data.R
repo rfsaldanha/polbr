@@ -1,3 +1,100 @@
+render_raster_image_file <- function(path, cfg, index, target_size, image_dir, revision) {
+  raster <- terra::rast(path)
+  layer <- raster[[index]] * cfg$scale + cfg$offset
+  layer <- terra::project(layer, "EPSG:3857", method = "bilinear")
+  longest_side <- max(terra::ncol(layer), terra::nrow(layer))
+  factor <- min(8L, max(1L, ceiling(target_size / longest_side)))
+  if (factor > 1L) layer <- terra::disagg(layer, fact = factor, method = "bilinear")
+
+  values <- terra::as.matrix(layer, wide = TRUE)
+  alpha <- ifelse(is.finite(values), 0.82, 0)
+  if (isTRUE(cfg$continuous_palette) || is.null(cfg$breaks)) {
+    ramp <- grDevices::colorRampPalette(cfg$colors)(256)
+    scaled <- (values - cfg$range[[1]]) / diff(cfg$range)
+    color_index <- pmax(1L, pmin(256L, floor(scaled * 255) + 1L))
+  } else {
+    ramp <- cfg$colors
+    color_index <- findInterval(values, cfg$breaks, all.inside = TRUE)
+    color_index <- pmax(1L, pmin(length(ramp), color_index))
+  }
+  rgba <- grDevices::col2rgb(ramp[color_index], alpha = FALSE) / 255
+  nr <- nrow(values)
+  nc <- ncol(values)
+  image <- array(0, dim = c(nr, nc, 4))
+  image[, , 1] <- matrix(rgba[1, ], nrow = nr, byrow = FALSE)
+  image[, , 2] <- matrix(rgba[2, ], nrow = nr, byrow = FALSE)
+  image[, , 3] <- matrix(rgba[3, ], nrow = nr, byrow = FALSE)
+  image[, , 4] <- alpha
+
+  png_path <- file.path(
+    image_dir,
+    sprintf("%s-r%03d-%03d.png", cfg$id, as.integer(revision), as.integer(index))
+  )
+  temporary_path <- tempfile("raster-", tmpdir = image_dir, fileext = ".png")
+  png::writePNG(image, temporary_path)
+  if (!file.rename(temporary_path, png_path)) {
+    unlink(png_path, force = TRUE)
+    if (!file.rename(temporary_path, png_path)) stop("Falha ao publicar raster pré-carregado.")
+  }
+
+  extent <- terra::ext(layer)
+  corners <- terra::vect(
+    cbind(
+      c(extent$xmin, extent$xmax, extent$xmax, extent$xmin),
+      c(extent$ymax, extent$ymax, extent$ymin, extent$ymin)
+    ),
+    type = "points", crs = terra::crs(layer)
+  )
+  longitude_latitude <- terra::crds(terra::project(corners, "EPSG:4326"))
+  coordinates <- lapply(seq_len(nrow(longitude_latitude)), function(i) {
+    unname(longitude_latitude[i, ])
+  })
+  list(
+    url = sprintf(
+      "forecast-images/%s?v=%s", basename(png_path),
+      as.integer(file.info(png_path)$mtime)
+    ),
+    coordinates = coordinates,
+    index = as.integer(index),
+    width = terra::ncol(layer),
+    height = terra::nrow(layer),
+    render_factor = factor
+  )
+}
+
+validate_wind_files <- function(data_dir, horizons) {
+  horizons <- sort(unique(as.integer(horizons[is.finite(horizons)])))
+  paths <- file.path(data_dir, sprintf("wind_%d.json", horizons + 1L))
+  missing <- paths[!file.exists(paths)]
+  invalid <- character()
+
+  candidates <- setdiff(paths, missing)
+  for (path in candidates) {
+    valid <- tryCatch({
+      components <- jsonlite::fromJSON(path, simplifyVector = FALSE)
+      if (length(components) != 2L) stop("O arquivo deve conter os componentes u e v.")
+      parameter_numbers <- vapply(components, function(component) {
+        as.integer(component$header$parameterNumber %||% NA_integer_)
+      }, integer(1))
+      dimensions_match <- vapply(components, function(component) {
+        header <- component$header
+        expected <- as.integer(header$nx %||% 0L) * as.integer(header$ny %||% 0L)
+        expected > 0L && length(component$data) == expected
+      }, logical(1))
+      identical(sort(parameter_numbers), c(2L, 3L)) && all(dimensions_match)
+    }, error = function(error) FALSE)
+    if (!isTRUE(valid)) invalid <- c(invalid, path)
+  }
+
+  list(
+    valid = length(horizons) > 0L && !length(missing) && !length(invalid),
+    expected = length(paths),
+    missing = basename(missing),
+    invalid = basename(invalid),
+    horizons = horizons
+  )
+}
+
 create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   load_rasters <- function() {
     lapply(catalog, function(x) {
@@ -98,6 +195,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   tables <- if (is.null(con)) character() else DBI::dbListTables(con)
 
   image_cache <- cachem::cache_mem(max_size = 192 * 1024^2)
+  pending_images <- new.env(parent = emptyenv())
   query_cache <- cachem::cache_mem(max_size = 64 * 1024^2)
   image_dir <- tempfile("alertar-raster-cache-")
   dir.create(image_dir, recursive = TRUE)
@@ -142,7 +240,8 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     x <- rasters[[id]]
     actual_horizon <- normalize_horizon(id, horizon)
     index <- match(actual_horizon, raster_horizons[[id]])
-    key <- paste0("image-v4-webmercator-", raster_target_size, "-", id, "-layer-", index)
+    current_revision <- shiny::isolate(revision())
+    key <- paste0("image-v5-webmercator-", raster_target_size, "-r", current_revision, "-", id, "-layer-", index)
     if (image_cache$exists(key)) return(image_cache$get(key))
 
     layer <- x[[index]] * cfg$scale + cfg$offset
@@ -170,7 +269,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     image[, , 3] <- matrix(rgba[3, ], nrow = nr, byrow = FALSE)
     image[, , 4] <- alpha
 
-    png_path <- file.path(image_dir, sprintf("%s-%03d.png", id, index))
+    png_path <- file.path(image_dir, sprintf("%s-r%03d-%03d.png", id, current_revision, index))
     png::writePNG(image, png_path)
     result <- list(
       url = sprintf(
@@ -187,6 +286,47 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     )
     image_cache$set(key, result)
     result
+  }
+
+  raster_image_async <- function(id, horizon) {
+    cfg <- catalog[[id]]
+    actual_horizon <- normalize_horizon(id, horizon)
+    index <- match(actual_horizon, raster_horizons[[id]])
+    current_revision <- shiny::isolate(revision())
+    key <- paste0("image-v5-webmercator-", raster_target_size, "-r", current_revision, "-", id, "-layer-", index)
+    if (image_cache$exists(key)) return(promises::promise_resolve(image_cache$get(key)))
+    if (exists(key, envir = pending_images, inherits = FALSE)) {
+      return(get(key, envir = pending_images, inherits = FALSE))
+    }
+
+    path <- file.path(data_dir, cfg$file)
+    cfg$id <- id
+    promise <- promises::future_promise({
+      render_raster_image_file(
+        path, cfg, index, raster_target_size, image_dir, current_revision
+      )
+    })
+    promise <- promises::then(
+      promise,
+      onFulfilled = function(result) {
+        if (exists(key, envir = pending_images, inherits = FALSE)) {
+          rm(list = key, envir = pending_images)
+        }
+        result$horizon <- actual_horizon
+        if (identical(current_revision, shiny::isolate(revision()))) {
+          image_cache$set(key, result)
+        }
+        result
+      },
+      onRejected = function(error) {
+        if (exists(key, envir = pending_images, inherits = FALSE)) {
+          rm(list = key, envir = pending_images)
+        }
+        stop(error)
+      }
+    )
+    assign(key, promise, envir = pending_images)
+    promise
   }
 
   query_series <- function(id, territory_id) {
@@ -237,7 +377,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   }
 
   query_report_metrics <- function(id) {
-    key <- paste0("report-metrics-v1-", id)
+    key <- paste0("report-metrics-v2-", id)
     if (query_cache$exists(key)) return(query_cache$get(key))
     cfg <- catalog[[id]]
     table <- cfg$table
@@ -282,13 +422,48 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
 
     references <- cfg$references %||% list()
     reference_value <- if (length(references)) as.numeric(references[[1]]$value) else NA_real_
+    averaging_hours <- if (length(references)) {
+      suppressWarnings(as.numeric(references[[1]]$averaging_hours %||% NA_real_))
+    } else NA_real_
+    reference_cte <- ""
+    metric_source <- "timed"
+    reference_metric <- "metric_value"
+    if (is.finite(reference_value) && is.finite(averaging_hours) && averaging_hours > 0) {
+      reference_cte <- sprintf(
+        paste(
+          ", rolling_reference AS (",
+          "SELECT e.territory_key, e.date,",
+          "SUM(s.metric_value * date_diff('second',",
+          "GREATEST(s.date, e.date - INTERVAL '%g hours'),",
+          "LEAST(s.next_date, e.date))) / %.17g AS reference_metric",
+          "FROM timed e JOIN timed s ON s.territory_key = e.territory_key",
+          "AND e.date >= e.series_start + INTERVAL '%g hours'",
+          "AND s.date < e.date AND s.next_date > e.date - INTERVAL '%g hours'",
+          "GROUP BY e.territory_key, e.date",
+          "), reference_values AS (",
+          "SELECT t.*, r.reference_metric FROM timed t",
+          "LEFT JOIN rolling_reference r USING (territory_key, date)",
+          ")",
+          sep = " "
+        ),
+        averaging_hours, averaging_hours * 3600, averaging_hours, averaging_hours
+      )
+      metric_source <- "reference_values"
+      reference_metric <- "reference_metric"
+    }
     reference_column <- if (is.finite(reference_value)) {
       sprintf(
-        "SUM(CASE WHEN metric_value > %.17g THEN duration_hours ELSE 0 END) AS hours_above_reference",
-        reference_value
+        paste(
+          "SUM(CASE WHEN %s > %.17g THEN duration_hours ELSE 0 END) AS hours_above_reference,",
+          "SUM(CASE WHEN %s IS NOT NULL THEN duration_hours ELSE 0 END) AS reference_hours_covered"
+        ),
+        reference_metric, reference_value, reference_metric
       )
     } else {
-      "CAST(NULL AS DOUBLE) AS hours_above_reference"
+      paste(
+        "CAST(NULL AS DOUBLE) AS hours_above_reference,",
+        "CAST(NULL AS DOUBLE) AS reference_hours_covered"
+      )
     }
 
     select_columns <- c(
@@ -310,10 +485,11 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
         "LEAD(date) OVER (PARTITION BY %s ORDER BY date) AS next_date",
         "FROM %s WHERE value IS NOT NULL",
         "), timed AS (",
-        "SELECT territory_key, date, metric_value,",
+        "SELECT territory_key, date, metric_value, next_date,",
+        "MIN(date) OVER (PARTITION BY territory_key) AS series_start,",
         "CASE WHEN next_date IS NULL THEN 0 ELSE LEAST(%.17g, GREATEST(0, date_diff('second', date, next_date) / 3600.0)) END AS duration_hours",
         "FROM ordered",
-        ") SELECT %s FROM timed GROUP BY territory_key",
+        ") %s SELECT %s FROM %s GROUP BY territory_key",
         sep = " "
       ),
       key_expression,
@@ -321,7 +497,9 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
       DBI::dbQuoteIdentifier(con, key_field),
       DBI::dbQuoteIdentifier(con, table),
       as.numeric(cfg$interval),
-      paste(select_columns, collapse = ", ")
+      reference_cte,
+      paste(select_columns, collapse = ", "),
+      metric_source
     )
     result <- DBI::dbGetQuery(con, sql)
     if (!nrow(result)) return(result)
@@ -375,10 +553,25 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     territories[territories$territory_id == territory_id, , drop = FALSE]
   }
 
-  wind_available <- any(file.exists(file.path(data_dir, paste0("wind_", c(1, 121), ".json"))))
-  if (wind_available) shiny::addResourcePath("wind-data", data_dir)
+  expected_wind_horizons <- seq.int(0L, max(unlist(raster_horizons), na.rm = TRUE), by = 1L)
+  wind_state <- validate_wind_files(data_dir, expected_wind_horizons)
+  shiny::addResourcePath("wind-data", data_dir)
+
+  refresh_wind_state <- function() {
+    expected <- seq.int(0L, max(unlist(raster_horizons), na.rm = TRUE), by = 1L)
+    wind_state <<- validate_wind_files(data_dir, expected)
+    if (!isTRUE(wind_state$valid)) {
+      warning(
+        "Camada de vento desativada: ", length(wind_state$missing), " arquivo(s) ausente(s) e ",
+        length(wind_state$invalid), " arquivo(s) inválido(s) de ", wind_state$expected, "."
+      )
+    }
+    wind_state
+  }
 
   wind_url <- function(horizon) {
+    horizon <- suppressWarnings(as.integer(horizon))
+    if (!isTRUE(wind_state$valid) || !horizon %in% wind_state$horizons) return(NULL)
     filename <- sprintf("wind_%d.json", horizon + 1L)
     path <- file.path(data_dir, filename)
     version <- if (file.exists(path)) as.integer(file.info(path)$mtime) else 0L
@@ -410,11 +603,13 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     old_con <- con
     rasters <<- new_rasters
     raster_horizons <<- build_raster_horizons(new_rasters)
+    refresh_wind_state()
     available <<- new_available
     db_path <<- new_db_path
     con <<- new_con
     tables <<- new_tables
     image_cache$reset()
+    rm(list = ls(envir = pending_images, all.names = TRUE), envir = pending_images)
     query_cache$reset()
     unlink(list.files(image_dir, full.names = TRUE), recursive = TRUE, force = TRUE)
     refresh_fires()
@@ -437,6 +632,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     fires = function() fires,
     refresh_fires = refresh_fires,
     raster_image = raster_image,
+    raster_image_async = raster_image_async,
     forecast_horizons = function(id) raster_horizons[[id]],
     normalize_horizon = normalize_horizon,
     future_horizons = future_horizons,
@@ -446,7 +642,8 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     revision = revision,
     refresh = refresh,
     territory_geometry = territory_geometry,
-    wind_available = wind_available,
+    wind_available = function() isTRUE(wind_state$valid),
+    wind_diagnostics = function() wind_state,
     wind_url = wind_url,
     close = function() {
       if (!is.null(con) && DBI::dbIsValid(con)) DBI::dbDisconnect(con, shutdown = TRUE)

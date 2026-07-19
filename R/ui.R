@@ -243,13 +243,13 @@ report_metric_card <- function(label, value, detail = NULL, accent = FALSE) {
   )
 }
 
-report_unit_text <- function(unit) {
-  switch(unit, "ug/m3" = "µg/m³", "C" = "°C", unit)
+report_unit_text <- function(unit, language = "pt") {
+  localized_unit(unit, language)
 }
 
 report_ranking_rows <- function(data, report, language, timezone, limit = 10L) {
   cfg <- report$cfg
-  unit <- report_unit_text(cfg$unit)
+  unit <- report_unit_text(cfg$unit, language)
   data <- utils::head(data, limit)
   lapply(seq_len(nrow(data)), function(index) {
     row <- data[index, , drop = FALSE]
@@ -278,7 +278,7 @@ report_ranking_rows <- function(data, report, language, timezone, limit = 10L) {
 
 report_ranking_payload <- function(data, report, language, timezone) {
   cfg <- report$cfg
-  unit <- report_unit_text(cfg$unit)
+  unit <- report_unit_text(cfg$unit, language)
   payload <- lapply(seq_len(nrow(data)), function(index) {
     row <- data[index, , drop = FALSE]
     hours <- row$hours_above_reference[[1]]
@@ -383,7 +383,7 @@ report_ranking_chart <- function(data, report, language) {
   } else {
     14 + 86 * (chart_data$maximum_value - value_range[[1]]) / diff(value_range)
   }
-  unit <- report_unit_text(cfg$unit)
+  unit <- report_unit_text(cfg$unit, language)
 
   div(
     class = "report-ranking-chart",
@@ -441,7 +441,7 @@ territorial_report_view <- function(
   }
   cfg <- report$cfg
   selected <- report$selected
-  unit <- report_unit_text(cfg$unit)
+  unit <- report_unit_text(cfg$unit, language)
   period_start <- report_format_datetime(report$period[[1]], language, timezone)
   period_end <- report_format_datetime(report$period[[2]], language, timezone)
   report_reference_note <- report$reference_note %||% ""
@@ -730,7 +730,7 @@ app_ui <- function(store) {
                 value = timezones$timezone[[index]],
                 selected = if (identical(timezones$timezone[[index]], "America/Sao_Paulo")) "selected" else NULL,
                 `data-short-label` = timezones$code[[index]],
-                `data-full-label` = timezones$label[[index]],
+                `data-full-label` = timezone_full_labels("pt")[[index]],
                 timezones$code[[index]]
               )
             })
@@ -796,7 +796,7 @@ app_ui <- function(store) {
             ),
             div(
               class = "layer-option forecast-layer-option",
-              checkboxInput("show_wind", tr("pt", "wind_particles"), value = store$wind_available),
+              checkboxInput("show_wind", tr("pt", "wind_particles"), value = store$wind_available()),
               div(
                 class = "layer-option-meta",
                 span(id = "label-wind-detail", tr("pt", "wind_detail"))

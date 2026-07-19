@@ -948,6 +948,12 @@
       timezone.title = message.timezoneLabel;
       timezone.setAttribute("aria-label", message.timezoneLabel);
     }
+    if (timezone && message.timezoneOptions) {
+      for (const option of timezone.options) {
+        const fullLabel = message.timezoneOptions[option.value];
+        if (fullLabel) option.dataset.fullLabel = fullLabel;
+      }
+    }
 
     const forecastChart = document.getElementById("forecast_spark");
     if (forecastChart && message.chartLabel) {

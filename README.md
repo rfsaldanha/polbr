@@ -7,7 +7,7 @@ Painel Shiny/WebGL para explorar a previsao atmosferica do CAMS no Brasil. A int
 ```r
 install.packages(c(
   "shiny", "bslib", "mapgl", "terra", "sf", "DBI", "duckdb",
-  "jsonlite", "png", "cachem", "curl", "ncdf4"
+  "jsonlite", "png", "cachem", "curl", "ncdf4", "promises", "future"
 ))
 shiny::runApp()
 ```
@@ -22,6 +22,8 @@ Os quadros do mapa sao reamostrados em memoria para cerca de 1024 pixels no
 maior eixo antes da aplicacao da paleta, mantendo a grade cientifica original e
 melhorando a definicao no navegador. Para ajustar esse limite, use, por exemplo,
 `ALERTAR_RASTER_SIZE=1536`; valores entre 256 e 2048 sao aceitos.
+O pré-carregamento dos rasters e a coleta de raios usam dois processos auxiliares
+por padrão. Defina `ALERTAR_ASYNC_WORKERS` entre 2 e 4 para ajustar esse limite.
 
 No modo totem, os dados de previsão são reabertos automaticamente a cada três
 horas. O intervalo pode ser ajustado, em horas, com

@@ -64,15 +64,15 @@ forecast_y_range <- function(data, cfg) {
   values <- data$value[is.finite(data$value)]
   if (!length(values)) return(configured)
 
-  observed_max <- max(values)
-  if (observed_max <= configured[[2]]) return(configured)
-
+  observed <- range(values)
+  if (observed[[1]] >= configured[[1]] && observed[[2]] <= configured[[2]]) return(configured)
   configured_span <- max(.Machine$double.eps, diff(configured))
-  candidate <- observed_max + max(configured_span * .04, abs(observed_max) * .04)
-  ticks <- pretty(c(configured[[1]], candidate), n = 5)
-  upper_candidates <- ticks[ticks >= candidate]
-  upper <- if (length(upper_candidates)) min(upper_candidates) else candidate
-  c(configured[[1]], upper)
+  padding <- max(configured_span * .04, max(abs(observed)) * .04)
+  candidate <- c(
+    if (observed[[1]] < configured[[1]]) observed[[1]] - padding else configured[[1]],
+    if (observed[[2]] > configured[[2]]) observed[[2]] + padding else configured[[2]]
+  )
+  candidate
 }
 
 draw_forecast_plot <- function(data, cfg, references, language, timezone, target, large = FALSE) {
@@ -85,7 +85,7 @@ draw_forecast_plot <- function(data, cfg, references, language, timezone, target
     round(y_ticks, cfg$digits), trim = TRUE, scientific = FALSE,
     decimal.mark = if (language == "en") "." else ","
   )
-  unit_label <- switch(cfg$unit, "ug/m3" = "µg/m³", "C" = "°C", cfg$unit)
+  unit_label <- localized_unit(cfg$unit, language)
   display_dates <- in_timezone(data$date, timezone)
   display_target <- in_timezone(target, timezone)
   x_ticks <- local_midnight_ticks(display_dates, timezone)
@@ -171,7 +171,7 @@ report_category_specs <- function(cfg, language) {
     }
     list(
       column = sprintf("category_%d_hours", index),
-      label = paste(label, report_unit_text(cfg$unit)),
+      label = paste(label, report_unit_text(cfg$unit, language)),
       color = color
     )
   }, seq_len(length(breaks) - 1L), head(breaks, -1L), tail(breaks, -1L), cfg$colors)
@@ -369,13 +369,13 @@ app_server <- function(store, glm_store = NULL) {
       if (!isTRUE(isolate(map_ready()))) return(invisible(FALSE))
       wind_horizon <- effective_wind_horizon(horizon)
       show_wind <- isolate(input$show_wind)
-      wind_enabled <- if (is.null(show_wind)) store$wind_available else isTRUE(show_wind)
+      wind_enabled <- if (is.null(show_wind)) store$wind_available() else isTRUE(show_wind)
       session$sendCustomMessage(
         "alertar:wind",
         list(
           mapId = session$ns("forecast_map"),
-          active = wind_enabled && store$wind_available,
-          url = if (store$wind_available) store$wind_url(wind_horizon) else NULL
+          active = wind_enabled && store$wind_available(),
+          url = if (store$wind_available()) store$wind_url(wind_horizon) else NULL
         )
       )
       invisible(TRUE)
@@ -484,23 +484,34 @@ app_server <- function(store, glm_store = NULL) {
           preload_delay <- 0.05 + (queue_index - 1L) * 0.24
           later::later(function() {
             if (job_generation != preload_generation) return(invisible(NULL))
-            image <- tryCatch(
-              store$raster_image(job_id, job_horizon),
-              error = function(error) NULL
-            )
-            if (exists(job_key, envir = preload_jobs, inherits = FALSE)) {
-              rm(list = job_key, envir = preload_jobs)
-            }
-            if (is.null(image)) return(invisible(NULL))
-            assign(job_key, TRUE, envir = preload_completed)
-            session$sendCustomMessage(
-              "alertar:preload",
-              list(
-                rasterUrls = list(image$url),
-                windUrls = if (store$wind_available && !isTRUE(isolate(playing()))) {
-                  list(store$wind_url(job_horizon))
-                } else list()
-              )
+            promise <- store$raster_image_async(job_id, job_horizon)
+            promises::then(
+              promise,
+              onFulfilled = function(image) {
+                if (exists(job_key, envir = preload_jobs, inherits = FALSE)) {
+                  rm(list = job_key, envir = preload_jobs)
+                }
+                if (session$isClosed() || job_generation != preload_generation || is.null(image)) {
+                  return(invisible(NULL))
+                }
+                assign(job_key, TRUE, envir = preload_completed)
+                session$sendCustomMessage(
+                  "alertar:preload",
+                  list(
+                    rasterUrls = list(image$url),
+                    windUrls = if (store$wind_available() && !isTRUE(isolate(playing()))) {
+                      Filter(Negate(is.null), list(store$wind_url(job_horizon)))
+                    } else list()
+                  )
+                )
+                invisible(NULL)
+              },
+              onRejected = function(error) {
+                if (exists(job_key, envir = preload_jobs, inherits = FALSE)) {
+                  rm(list = job_key, envir = preload_jobs)
+                }
+                invisible(NULL)
+              }
             )
           }, delay = preload_delay)
         })
@@ -580,32 +591,44 @@ app_server <- function(store, glm_store = NULL) {
       }
 
       lightning_loading(TRUE)
-      later::later(function() {
-        if (session$isClosed() || request_sequence != lightning_request_sequence) return(invisible(NULL))
-        if (!isTRUE(isolate(input$show_lightning))) {
+      promise <- glm_store$refresh_async()
+      promises::then(
+        promise,
+        onFulfilled = function(snapshot) {
+          if (session$isClosed() || request_sequence != lightning_request_sequence) {
+            return(invisible(NULL))
+          }
           lightning_loading(FALSE)
-          return(invisible(NULL))
-        }
-        on.exit(lightning_loading(FALSE), add = TRUE)
-
-        snapshot <- glm_store$refresh()
-        lightning_snapshot(snapshot)
-        flashes <- snapshot$flashes
-        session$sendCustomMessage(
-          "alertar:lightning",
-          list(
-            mapId = session$ns("forecast_map"),
-            active = TRUE,
-            windowSeconds = 5 * 60,
-            flashes = list(
-              lon = unname(flashes$lon),
-              lat = unname(flashes$lat),
-              energy = unname(flashes$energy),
-              observedAt = unname(flashes$observed_at)
+          if (!isTRUE(isolate(input$show_lightning))) return(invisible(NULL))
+          lightning_snapshot(snapshot)
+          flashes <- snapshot$flashes
+          session$sendCustomMessage(
+            "alertar:lightning",
+            list(
+              mapId = session$ns("forecast_map"),
+              active = TRUE,
+              windowSeconds = 5 * 60,
+              flashes = list(
+                lon = unname(flashes$lon),
+                lat = unname(flashes$lat),
+                energy = unname(flashes$energy),
+                observedAt = unname(flashes$observed_at)
+              )
             )
           )
-        )
-      }, delay = .05)
+          invisible(NULL)
+        },
+        onRejected = function(error) {
+          if (!session$isClosed() && request_sequence == lightning_request_sequence) {
+            lightning_loading(FALSE)
+            lightning_snapshot(list(
+              flashes = data.frame(), latest = as.POSIXct(NA), updated = Sys.time(),
+              error = conditionMessage(error)
+            ))
+          }
+          invisible(NULL)
+        }
+      )
     })
 
     observeEvent(
@@ -670,10 +693,10 @@ app_server <- function(store, glm_store = NULL) {
       update_selected_territory()
       send_weather_update()
       send_fire_update()
-      if (store$wind_available) {
+      if (store$wind_available()) {
         session$sendCustomMessage(
           "alertar:preload",
-          list(rasterUrls = list(), windUrls = list(store$wind_url(animation_wind_horizon)))
+          list(rasterUrls = list(), windUrls = Filter(Negate(is.null), list(store$wind_url(animation_wind_horizon))))
         )
       }
       send_wind_update(horizon)
@@ -864,7 +887,7 @@ app_server <- function(store, glm_store = NULL) {
           div(
             class = "value-row",
             span(class = "reading-value", if (is.finite(value)) format(round(value, cfg$digits), nsmall = cfg$digits, decimal.mark = decimal_mark) else "—"),
-            span(class = "reading-unit", pretty_unit(cfg$unit))
+            span(class = "reading-unit", pretty_unit(cfg$unit, language))
           ),
           div(
             class = "reading-time",
@@ -976,7 +999,7 @@ app_server <- function(store, glm_store = NULL) {
         format(c(0, finite), trim = TRUE)
       }
       tagList(
-        div(class = "legend-title", indicator_text(language, id, "short", cfg$short), span(pretty_unit(cfg$unit))),
+        div(class = "legend-title", indicator_text(language, id, "short", cfg$short), span(pretty_unit(cfg$unit, language))),
         div(class = "legend-gradient", style = paste0("--legend:", paste(cfg$colors, collapse = ","))),
         div(class = "legend-labels", lapply(labels, span))
       )
@@ -1134,6 +1157,10 @@ app_server <- function(store, glm_store = NULL) {
           title = tr(language, "app_title"),
           territoryPlaceholder = tr(language, "territory_placeholder"),
           timezoneLabel = tr(language, "timezone_label"),
+          timezoneOptions = stats::setNames(
+            as.list(timezone_full_labels(language)),
+            timezone_catalog()$timezone
+          ),
           chartLabel = tr(language, "chart_expand"),
           totemToggle = list(
             enter = tr(language, "totem_mode"),

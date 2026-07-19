@@ -10,7 +10,9 @@ required_packages <- c(
   "png",
   "cachem",
   "curl",
-  "ncdf4"
+  "ncdf4",
+  "promises",
+  "future"
 )
 
 missing_packages <- required_packages[
@@ -28,6 +30,9 @@ if (length(missing_packages)) {
 suppressPackageStartupMessages(library(shiny))
 
 options(shiny.autoreload = FALSE, shiny.maxRequestSize = 30 * 1024^2)
+async_workers <- suppressWarnings(as.integer(Sys.getenv("ALERTAR_ASYNC_WORKERS", "2")))
+if (!is.finite(async_workers) || async_workers < 2L) async_workers <- 2L
+future::plan(future::multisession, workers = min(async_workers, 4L))
 
 invisible(lapply(
   c("R/config.R", "R/i18n.R", "R/glm.R", "R/data.R", "R/ui.R", "R/server.R"),
@@ -42,6 +47,7 @@ glm_store <- create_glm_store()
 onStop(function() {
   store$close()
   glm_store$close()
+  future::plan(future::sequential)
 })
 
 shiny::shinyApp(

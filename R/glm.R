@@ -62,15 +62,60 @@ glm_read_flashes <- function(path, key, bounds) {
   )
 }
 
+glm_refresh_payload <- function(now, bounds, window_minutes, cached_records = list()) {
+  now <- as.POSIXct(now, origin = "1970-01-01", tz = "UTC")
+  window_start <- now - window_minutes * 60
+  records <- cached_records
+  cache_dir <- tempfile("alertar-glm-worker-")
+  dir.create(cache_dir, recursive = TRUE)
+  on.exit(unlink(cache_dir, recursive = TRUE, force = TRUE), add = TRUE)
+
+  keys <- glm_s3_keys(window_start - 30, now)
+  if (!length(keys)) stop("Nenhum arquivo GLM recente foi publicado pelo NOAA.")
+  for (key in keys) {
+    if (key %in% names(records)) next
+    destination <- file.path(cache_dir, basename(key))
+    url <- paste0("https://noaa-goes19.s3.amazonaws.com/", key)
+    flashes <- tryCatch({
+      handle <- curl::new_handle(connecttimeout = 6, timeout = 20)
+      curl::curl_download(url, destination, quiet = TRUE, mode = "wb", handle = handle)
+      glm_read_flashes(destination, key, bounds)
+    }, error = function(error) NULL)
+    unlink(destination, force = TRUE)
+    if (!is.null(flashes)) records[[key]] <- flashes
+  }
+  if (!length(records)) stop("Nenhum arquivo GLM recente pôde ser processado.")
+
+  record_times <- vapply(names(records), function(key) {
+    as.numeric(glm_parse_start_time(key))
+  }, numeric(1))
+  keep <- is.finite(record_times) & record_times >= as.numeric(window_start - 60)
+  records <- records[keep]
+  flashes <- if (length(records)) {
+    do.call(rbind, unname(records))
+  } else data.frame(lon = numeric(), lat = numeric(), energy = numeric(), observed_at = numeric())
+  flashes <- flashes[
+    is.finite(flashes$observed_at) & flashes$observed_at >= as.numeric(window_start),
+    , drop = FALSE
+  ]
+  rownames(flashes) <- NULL
+  latest <- if (nrow(flashes)) {
+    as.POSIXct(max(flashes$observed_at), origin = "1970-01-01", tz = "UTC")
+  } else as.POSIXct(NA, tz = "UTC")
+  list(
+    records = records,
+    snapshot = list(flashes = flashes, latest = latest, updated = now, error = NULL)
+  )
+}
+
 create_glm_store <- function(
   bounds = coverage_config("lac")$bounds,
   window_minutes = 5L,
   refresh_seconds = 45L
 ) {
-  cache_dir <- tempfile("alertar-glm-")
-  dir.create(cache_dir, recursive = TRUE)
   records <- new.env(parent = emptyenv())
   last_attempt <- as.POSIXct(NA, tz = "UTC")
+  inflight <- NULL
   snapshot <- list(
     flashes = data.frame(lon = numeric(), lat = numeric(), energy = numeric(), observed_at = numeric()),
     latest = as.POSIXct(NA, tz = "UTC"),
@@ -78,70 +123,65 @@ create_glm_store <- function(
     error = NULL
   )
 
+  cached_records <- function() {
+    keys <- ls(envir = records, all.names = TRUE)
+    if (length(keys)) mget(keys, envir = records, inherits = FALSE) else list()
+  }
+  apply_payload <- function(payload) {
+    existing <- ls(envir = records, all.names = TRUE)
+    if (length(existing)) rm(list = existing, envir = records)
+    if (length(payload$records)) {
+      for (key in names(payload$records)) assign(key, payload$records[[key]], envir = records)
+    }
+    snapshot <<- payload$snapshot
+    snapshot
+  }
+  failed_snapshot <- function(error, now) {
+    snapshot$error <<- conditionMessage(error)
+    snapshot$updated <<- now
+    snapshot
+  }
+  recently_attempted <- function(now) {
+    !is.na(last_attempt) &&
+      as.numeric(difftime(now, last_attempt, units = "secs")) < refresh_seconds
+  }
+
   refresh <- function(force = FALSE) {
     now <- as.POSIXct(Sys.time(), tz = "UTC")
-    recently_attempted <- !is.na(last_attempt) &&
-      as.numeric(difftime(now, last_attempt, units = "secs")) < refresh_seconds
-    if (!force && recently_attempted) return(snapshot)
+    if (!force && recently_attempted(now)) return(snapshot)
     last_attempt <<- now
-    window_start <- now - window_minutes * 60
+    tryCatch(
+      apply_payload(glm_refresh_payload(now, bounds, window_minutes, cached_records())),
+      error = function(error) failed_snapshot(error, now)
+    )
+  }
 
-    tryCatch({
-      keys <- glm_s3_keys(window_start - 30, now)
-      if (!length(keys)) stop("Nenhum arquivo GLM recente foi publicado pelo NOAA.")
-      for (key in keys) {
-        if (exists(key, envir = records, inherits = FALSE)) next
-        destination <- file.path(cache_dir, basename(key))
-        url <- paste0("https://noaa-goes19.s3.amazonaws.com/", key)
-        flashes <- tryCatch(
-          {
-            handle <- curl::new_handle(connecttimeout = 6, timeout = 20)
-            curl::curl_download(
-              url, destination, quiet = TRUE, mode = "wb", handle = handle
-            )
-            glm_read_flashes(destination, key, bounds)
-          },
-          error = function(error) {
-            warning("Falha ao processar arquivo GLM ", basename(key), ": ", conditionMessage(error))
-            NULL
-          }
-        )
-        unlink(destination, force = TRUE)
-        if (!is.null(flashes)) assign(key, flashes, envir = records)
-      }
-      if (!length(ls(envir = records, all.names = TRUE))) {
-        stop("Nenhum arquivo GLM recente pôde ser processado.")
-      }
-
-      cached_keys <- ls(envir = records, all.names = TRUE)
-      if (length(cached_keys)) {
-        cached_times <- vapply(cached_keys, function(key) as.numeric(glm_parse_start_time(key)), numeric(1))
-        expired <- cached_keys[!is.finite(cached_times) | cached_times < as.numeric(window_start - 60)]
-        if (length(expired)) rm(list = expired, envir = records)
-      }
-      current <- ls(envir = records, all.names = TRUE)
-      flashes <- if (length(current)) {
-        do.call(rbind, mget(current, envir = records, inherits = FALSE))
-      } else snapshot$flashes[0, , drop = FALSE]
-      flashes <- flashes[
-        is.finite(flashes$observed_at) & flashes$observed_at >= as.numeric(window_start),
-        , drop = FALSE
-      ]
-      rownames(flashes) <- NULL
-      latest <- if (nrow(flashes)) {
-        as.POSIXct(max(flashes$observed_at), origin = "1970-01-01", tz = "UTC")
-      } else as.POSIXct(NA, tz = "UTC")
-      snapshot <<- list(flashes = flashes, latest = latest, updated = now, error = NULL)
-      snapshot
-    }, error = function(error) {
-      snapshot$error <<- conditionMessage(error)
-      snapshot$updated <<- now
-      snapshot
+  refresh_async <- function(force = FALSE) {
+    now <- as.POSIXct(Sys.time(), tz = "UTC")
+    if (!is.null(inflight)) return(inflight)
+    if (!force && recently_attempted(now)) return(promises::promise_resolve(snapshot))
+    last_attempt <<- now
+    records_snapshot <- cached_records()
+    work <- promises::future_promise({
+      glm_refresh_payload(now, bounds, window_minutes, records_snapshot)
     })
+    inflight <<- promises::then(
+      work,
+      onFulfilled = function(payload) {
+        inflight <<- NULL
+        apply_payload(payload)
+      },
+      onRejected = function(error) {
+        inflight <<- NULL
+        failed_snapshot(error, now)
+      }
+    )
+    inflight
   }
 
   list(
     refresh = refresh,
-    close = function() unlink(cache_dir, recursive = TRUE, force = TRUE)
+    refresh_async = refresh_async,
+    close = function() invisible(NULL)
   )
 }
