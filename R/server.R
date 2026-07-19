@@ -823,7 +823,7 @@ app_server <- function(store) {
       language <- current_language()
       cfg <- selected_config()
       id <- input$indicator
-      labels <- if (is.null(cfg$breaks)) {
+      labels <- if (isTRUE(cfg$continuous_palette) || is.null(cfg$breaks)) {
         format(seq(cfg$range[[1]], cfg$range[[2]], length.out = 5), trim = TRUE)
       } else {
         finite <- cfg$breaks[is.finite(cfg$breaks)]

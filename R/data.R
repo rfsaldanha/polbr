@@ -111,7 +111,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     x <- rasters[[id]]
     actual_horizon <- normalize_horizon(id, horizon)
     index <- match(actual_horizon, raster_horizons[[id]])
-    key <- paste0("image-v3-webmercator-", raster_target_size, "-", id, "-layer-", index)
+    key <- paste0("image-v4-webmercator-", raster_target_size, "-", id, "-layer-", index)
     if (image_cache$exists(key)) return(image_cache$get(key))
 
     layer <- x[[index]] * cfg$scale + cfg$offset
@@ -120,7 +120,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     values <- terra::as.matrix(layer, wide = TRUE)
     alpha <- ifelse(is.finite(values), 0.82, 0)
 
-    if (is.null(cfg$breaks)) {
+    if (isTRUE(cfg$continuous_palette) || is.null(cfg$breaks)) {
       ramp <- grDevices::colorRampPalette(cfg$colors)(256)
       scaled <- (values - cfg$range[[1]]) / diff(cfg$range)
       color_index <- pmax(1L, pmin(256L, floor(scaled * 255) + 1L))

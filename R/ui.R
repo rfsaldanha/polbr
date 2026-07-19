@@ -335,6 +335,7 @@ app_ui <- function(store) {
     names(catalog),
     vapply(names(catalog), function(id) indicator_text("pt", id, "short", catalog[[id]]$short), character(1))
   )
+  languages <- language_choices()
 
   bslib::page_fillable(
     title = tr("pt", "app_title"),
@@ -376,13 +377,20 @@ app_ui <- function(store) {
           icon("globe"),
           tags$select(
             id = "language",
-            class = "shiny-input-select form-control",
+            class = "shiny-input-select form-control compact-native-select",
             title = "Idioma / Langue / Language",
             `aria-label` = "Idioma / Langue / Language",
-            tags$option(value = "pt", selected = "selected", "PT"),
-            tags$option(value = "fr", "FR"),
-            tags$option(value = "es", "ES"),
-            tags$option(value = "en", "EN")
+            lapply(seq_along(languages), function(index) {
+              code <- unname(languages[[index]])
+              abbreviation <- toupper(code)
+              tags$option(
+                value = code,
+                selected = if (identical(code, "pt")) "selected" else NULL,
+                `data-short-label` = abbreviation,
+                `data-full-label` = paste(abbreviation, names(languages)[[index]], sep = " · "),
+                abbreviation
+              )
+            })
           )
         ),
         div(
@@ -390,15 +398,16 @@ app_ui <- function(store) {
           icon("clock"),
           tags$select(
             id = "timezone",
-            class = "shiny-input-select form-control",
+            class = "shiny-input-select form-control compact-native-select",
             title = tr("pt", "timezone_label"),
             `aria-label` = tr("pt", "timezone_label"),
-            lapply(seq_len(nrow(timezones)), function(i) {
+            lapply(seq_len(nrow(timezones)), function(index) {
               tags$option(
-                value = timezones$timezone[[i]],
-                selected = if (timezones$timezone[[i]] == "America/Sao_Paulo") "selected" else NULL,
-                title = timezones$label[[i]],
-                timezones$code[[i]]
+                value = timezones$timezone[[index]],
+                selected = if (identical(timezones$timezone[[index]], "America/Sao_Paulo")) "selected" else NULL,
+                `data-short-label` = timezones$code[[index]],
+                `data-full-label` = timezones$label[[index]],
+                timezones$code[[index]]
               )
             })
           )

@@ -5,6 +5,7 @@
   const rasterPreloads = new Map();
   const jsonPreloads = new Map();
   const latestRasterTokens = new Map();
+  const mapLanguageRequests = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
   let handlersRegistered = false;
@@ -349,20 +350,13 @@
     }
   }
 
-  async function localizeMap(message) {
-    const el = getMapElement(message.mapId);
-    if (!el) return;
-    let attempts = 0;
-    while ((!el.map || !el.map.isStyleLoaded()) && attempts++ < 40) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    if (!el.map || !el.map.isStyleLoaded()) return;
-
-    const language = String(message.language || "pt").toLowerCase();
+  function applyMapLanguage(el, language) {
+    if (!el.map || !el.map.isStyleLoaded()) return false;
     const textField = [
       "coalesce",
       ["get", "name:" + language],
       ["get", "name"],
+      ["get", "name:en"],
       ["get", "name_en"]
     ];
 
@@ -376,6 +370,42 @@
       } catch (error) {
         console.debug("Rotulo nao localizado:", layer.id, error);
       }
+    }
+    return true;
+  }
+
+  function bindMapLanguageLifecycle(el, mapId) {
+    if (!el.map || el._alertarLanguageMap === el.map) return;
+    el._alertarLanguageMap = el.map;
+    const reapply = () => {
+      const language = mapLanguageRequests.get(mapId);
+      if (language) applyMapLanguage(el, language);
+    };
+    el.map.on("load", reapply);
+    el.map.on("style.load", reapply);
+  }
+
+  async function localizeMap(message) {
+    const mapId = message.mapId;
+    const language = String(message.language || "pt").toLowerCase();
+    mapLanguageRequests.set(mapId, language);
+    const el = getMapElement(mapId);
+    if (!el) return;
+    let attempts = 0;
+    while ((!el.map || !el.map.isStyleLoaded()) && attempts++ < 80) {
+      if (el.map) bindMapLanguageLifecycle(el, mapId);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!el.map) return;
+    bindMapLanguageLifecycle(el, mapId);
+    applyMapLanguage(el, language);
+
+    // MapLibre and the remote CARTO style can finish initialization in
+    // different orders on the first visit. Reapply after those late stages.
+    for (const delay of [250, 900, 1800]) {
+      window.setTimeout(() => {
+        if (mapLanguageRequests.get(mapId) === language) applyMapLanguage(el, language);
+      }, delay);
     }
   }
 
@@ -672,11 +702,34 @@
     }
   }
 
+  function bindCompactNativeSelects() {
+    for (const select of document.querySelectorAll("select.compact-native-select")) {
+      if (select.dataset.compactLabelsBound === "true") continue;
+      select.dataset.compactLabelsBound = "true";
+      const setExpanded = expanded => {
+        for (const option of select.options) {
+          const label = expanded ? option.dataset.fullLabel : option.dataset.shortLabel;
+          if (label) option.textContent = label;
+        }
+      };
+      const collapse = () => setExpanded(false);
+      select.addEventListener("mousedown", () => setExpanded(true));
+      select.addEventListener("touchstart", () => setExpanded(true), {passive: true});
+      select.addEventListener("keydown", event => {
+        if (["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) setExpanded(true);
+      });
+      select.addEventListener("change", collapse);
+      select.addEventListener("blur", collapse);
+      collapse();
+    }
+  }
+
   function bindLocalControls() {
     bindDetailsToggle();
     bindMapAttribution();
     bindStarField();
     bindTotemToggle();
+    bindCompactNativeSelects();
   }
 
   function registerHandlers() {
