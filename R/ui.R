@@ -49,7 +49,8 @@ about_project_modal <- function(language = "pt") {
         h3(tr(language, "about_methods_heading")),
         p(tr(language, "about_methods_p1")),
         p(tr(language, "about_methods_p2")),
-        p(tr(language, "about_methods_p3"))
+        p(tr(language, "about_methods_p3")),
+        p(tr(language, "about_methods_p4"))
       ),
       tags$section(
         h3(tr(language, "about_coverage_heading")),
@@ -705,6 +706,11 @@ app_ui <- function(store) {
         div(class = "divider weather-divider"),
         div(
           class = "weather-layer-control",
+          checkboxInput("show_lightning", tr("pt", "lightning_flashes"), value = FALSE),
+          conditionalPanel(
+            condition = "input.show_lightning === true",
+            uiOutput("lightning_status", class = "lightning-status-output")
+          ),
           checkboxInput("show_weather", tr("pt", "weather_imagery"), value = FALSE),
           conditionalPanel(
             condition = "input.show_weather === true",

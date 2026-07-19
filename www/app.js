@@ -8,6 +8,7 @@
   const mapLanguageRequests = new Map();
   const weatherObservationStates = new Map();
   const forecastOpacityRequests = new Map();
+  const lightningOverlays = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
   let handlersRegistered = false;
@@ -284,6 +285,183 @@
       console.warn("Camada de vento indisponivel:", error);
       overlay.setActive(false);
     }
+  }
+
+  function makeLightningOverlay(el, map) {
+    const canvas = document.createElement("canvas");
+    canvas.className = "lightning-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    el.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+    const state = {
+      canvas, ctx, flashes: [], active: false, moving: false,
+      frame: null, lastDraw: 0, windowSeconds: 300
+    };
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = el.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      clear();
+    }
+
+    function clear() {
+      ctx.clearRect(0, 0, el.clientWidth, el.clientHeight);
+    }
+
+    function stop() {
+      if (state.frame) cancelAnimationFrame(state.frame);
+      state.frame = null;
+      clear();
+    }
+
+    function start() {
+      if (!state.active || state.moving || state.frame) return;
+      state.frame = requestAnimationFrame(draw);
+    }
+
+    function draw(timestamp) {
+      state.frame = null;
+      if (!state.active || state.moving || (typeof map.isMoving === "function" && map.isMoving())) {
+        clear();
+        return;
+      }
+      if (timestamp - state.lastDraw < 33) {
+        start();
+        return;
+      }
+      state.lastDraw = timestamp;
+      clear();
+      const now = Date.now() / 1000;
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      const visible = [];
+      const ageBands = 5;
+      const energyBands = 3;
+      const phaseBands = 4;
+      const pulseCyclesPerSecond = .4;
+      const buckets = Array.from(
+        {length: ageBands * energyBands * phaseBands},
+        () => ({glow: new Path2D(), core: new Path2D(), count: 0})
+      );
+      ctx.globalCompositeOperation = "lighter";
+
+      for (let index = 0; index < state.flashes.length; index++) {
+        const flash = state.flashes[index];
+        const age = Math.max(0, now - flash.observedAt);
+        if (!Number.isFinite(age) || age > state.windowSeconds) continue;
+        visible.push(flash);
+        const point = map.project([flash.lon, flash.lat]);
+        if (
+          !Number.isFinite(point.x) || !Number.isFinite(point.y) ||
+          point.x < -20 || point.y < -20 || point.x > width + 20 || point.y > height + 20
+        ) continue;
+
+        const energyLevel = Math.max(0, Math.min(1, (Math.log10(Math.max(flash.energy, 1e-15)) + 15) / 4));
+        const ageBand = Math.min(ageBands - 1, Math.floor(age / state.windowSeconds * ageBands));
+        const energyBand = Math.min(energyBands - 1, Math.floor(energyLevel * energyBands));
+        const phaseBand = index % phaseBands;
+        const bucketIndex = ageBand * energyBands * phaseBands + energyBand * phaseBands + phaseBand;
+        const phase = (now * pulseCyclesPerSecond + phaseBand / phaseBands) % 1;
+        const pulse = (1 - Math.cos(phase * Math.PI * 2)) / 2;
+        const coreRadius = 1.15 + energyBand * .65;
+        const glowRadius = coreRadius + 2.4 + pulse * 5.2;
+        buckets[bucketIndex].glow.moveTo(point.x + glowRadius, point.y);
+        buckets[bucketIndex].glow.arc(point.x, point.y, glowRadius, 0, Math.PI * 2);
+        buckets[bucketIndex].core.moveTo(point.x + coreRadius, point.y);
+        buckets[bucketIndex].core.arc(point.x, point.y, coreRadius, 0, Math.PI * 2);
+        buckets[bucketIndex].count++;
+      }
+
+      state.flashes = visible;
+      for (let ageBand = ageBands - 1; ageBand >= 0; ageBand--) {
+        const fade = Math.pow(1 - (ageBand + .5) / ageBands, 1.35);
+        for (let energyBand = 0; energyBand < energyBands; energyBand++) {
+          for (let phaseBand = 0; phaseBand < phaseBands; phaseBand++) {
+            const bucketIndex = ageBand * energyBands * phaseBands + energyBand * phaseBands + phaseBand;
+            const bucket = buckets[bucketIndex];
+            if (!bucket.count) continue;
+            const phase = (now * pulseCyclesPerSecond + phaseBand / phaseBands) % 1;
+            const pulse = (1 - Math.cos(phase * Math.PI * 2)) / 2;
+            const alpha = fade * (.12 + energyBand * .08) * (1 - pulse * .52);
+            ctx.fillStyle = `rgba(255,177,43,${alpha})`;
+            ctx.fill(bucket.glow);
+            ctx.fillStyle = `rgba(255,249,194,${Math.min(1, alpha * 2.8)})`;
+            ctx.fill(bucket.core);
+          }
+        }
+      }
+      ctx.globalCompositeOperation = "source-over";
+      if (state.flashes.length) start();
+    }
+
+    state.setActive = function(active) {
+      state.active = Boolean(active);
+      if (state.active) start();
+      else stop();
+    };
+    state.setFlashes = function(flashes, windowSeconds) {
+      state.flashes = flashes;
+      state.windowSeconds = Number(windowSeconds) || 300;
+      if (state.active) start();
+    };
+    new ResizeObserver(resize).observe(el);
+    map.on("movestart", () => {
+      state.moving = true;
+      stop();
+    });
+    map.on("moveend", () => {
+      state.moving = false;
+      start();
+    });
+    resize();
+    return state;
+  }
+
+  function messageArray(value) {
+    if (Array.isArray(value)) return value;
+    return value == null ? [] : [value];
+  }
+
+  async function updateLightning(message) {
+    const el = getMapElement(message.mapId);
+    if (!el) return;
+    let overlay = lightningOverlays.get(message.mapId);
+    if (!message.active && !overlay) return;
+    let attempts = 0;
+    while (!el.map && attempts++ < 80) await new Promise(resolve => setTimeout(resolve, 100));
+    if (!el.map) return;
+    if (!overlay) {
+      overlay = makeLightningOverlay(el, el.map);
+      lightningOverlays.set(message.mapId, overlay);
+    }
+    overlay.setActive(Boolean(message.active));
+    if (!message.active) {
+      overlay.setFlashes([], message.windowSeconds);
+      return;
+    }
+
+    const columns = message.flashes || {};
+    const longitude = messageArray(columns.lon);
+    const latitude = messageArray(columns.lat);
+    const energy = messageArray(columns.energy);
+    const observedAt = messageArray(columns.observedAt);
+    const length = Math.min(longitude.length, latitude.length, energy.length, observedAt.length);
+    const flashes = [];
+    for (let index = 0; index < length; index++) {
+      const flash = {
+        lon: Number(longitude[index]),
+        lat: Number(latitude[index]),
+        energy: Number(energy[index]),
+        observedAt: Number(observedAt[index])
+      };
+      if (Object.values(flash).every(Number.isFinite)) flashes.push(flash);
+    }
+    overlay.setFlashes(flashes, message.windowSeconds);
   }
 
   async function updateRaster(message) {
@@ -841,6 +1019,7 @@
     if (handlersRegistered || !window.Shiny) return;
     handlersRegistered = true;
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
+    Shiny.addCustomMessageHandler("alertar:lightning", updateLightning);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
     Shiny.addCustomMessageHandler("alertar:forecast-opacity", updateForecastOpacity);
     Shiny.addCustomMessageHandler("alertar:weather-observation", updateWeatherObservation);

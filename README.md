@@ -7,7 +7,7 @@ Painel Shiny/WebGL para explorar a previsao atmosferica do CAMS no Brasil. A int
 ```r
 install.packages(c(
   "shiny", "bslib", "mapgl", "terra", "sf", "DBI", "duckdb",
-  "jsonlite", "png", "cachem"
+  "jsonlite", "png", "cachem", "curl", "ncdf4"
 ))
 shiny::runApp()
 ```
@@ -56,6 +56,13 @@ naturais, infravermelho térmico, massas de ar, poeira, temperatura de incêndio
 e canal visível. A camada exige acesso à internet e é atualizada a cada dez
 minutos; o horário efetivamente servido pelo provedor aparece no fuso escolhido.
 
+A camada **Raios · GLM/NOAA** consulta o produto vetorial `GLM-L2-LCFA` do
+GOES-East no NOAA Open Data Dissemination. Os flashes de boa qualidade dos cinco
+minutos mais recentes são exibidos como pulsos luminosos, que perdem intensidade
+gradualmente conforme envelhecem. A consulta é incremental: depois da primeira
+carga, somente arquivos novos são baixados. O campo de visão do GLM alcança
+aproximadamente 54°N–54°S.
+
 A área de relatórios compara a unidade selecionada com unidades do mesmo tipo no
 estado e no país. Os rankings, horas acima da referência e horas por faixa são
 calculados no DuckDB sem formar médias espaciais estaduais ou nacionais. O
@@ -66,9 +73,10 @@ autocontido, mantendo essas interações.
 ## Arquitetura
 
 - `R/config.R`: catalogos de indicadores, observações, unidades, escalas e paletas.
+- `R/glm.R`: acesso incremental e leitura dos flashes recentes do GOES-East GLM.
 - `R/data.R`: acesso lazy aos NetCDF, cache de PNGs e consultas DuckDB parametrizadas.
 - `R/ui.R`: interface responsiva em tela cheia.
 - `R/server.R`: reatividade, proxy MapLibre, timeline e downloads.
-- `www/app.js`: particulas de vento sincronizadas ao mapa.
+- `www/app.js`: partículas de vento e pulsos GLM sincronizados ao mapa.
 - `www/report.js`: interatividade das tabelas e escalas dos relatorios.
 - `www/styles.css`: identidade visual escura.

@@ -8,7 +8,9 @@ required_packages <- c(
   "duckdb",
   "jsonlite",
   "png",
-  "cachem"
+  "cachem",
+  "curl",
+  "ncdf4"
 )
 
 missing_packages <- required_packages[
@@ -28,18 +30,22 @@ suppressPackageStartupMessages(library(shiny))
 options(shiny.autoreload = FALSE, shiny.maxRequestSize = 30 * 1024^2)
 
 invisible(lapply(
-  c("R/config.R", "R/i18n.R", "R/data.R", "R/ui.R", "R/server.R"),
+  c("R/config.R", "R/i18n.R", "R/glm.R", "R/data.R", "R/ui.R", "R/server.R"),
   sys.source,
   envir = environment()
 ))
 
 data_dir <- resolve_data_dir()
 store <- create_data_store(data_dir, indicator_catalog())
+glm_store <- create_glm_store()
 
-onStop(function() store$close())
+onStop(function() {
+  store$close()
+  glm_store$close()
+})
 
 shiny::shinyApp(
   ui = app_ui(store),
-  server = app_server(store),
+  server = app_server(store, glm_store),
   options = list(launch.browser = TRUE)
 )

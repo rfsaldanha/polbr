@@ -196,7 +196,7 @@ rank_report_units <- function(data, categories, language) {
   data
 }
 
-app_server <- function(store) {
+app_server <- function(store, glm_store = NULL) {
   force(store)
   function(input, output, session) {
     catalog <- store$catalog
@@ -255,6 +255,7 @@ app_server <- function(store) {
     map_ready <- reactiveVal(FALSE)
     displayed_horizon <- reactiveVal(12)
     pending_raster <- reactiveVal(NULL)
+    lightning_snapshot <- reactiveVal(NULL)
     raster_request_sequence <- 0L
 
     session$onFlushed(function() {
@@ -522,6 +523,38 @@ app_server <- function(store) {
       input$weather_source
       input$weather_product
       send_weather_update()
+    })
+
+    lightning_refresh <- reactiveTimer(60 * 1000, session)
+    observe({
+      lightning_refresh()
+      req(map_ready())
+      active <- isTRUE(input$show_lightning)
+      if (!active || is.null(glm_store)) {
+        session$sendCustomMessage(
+          "alertar:lightning",
+          list(mapId = session$ns("forecast_map"), active = FALSE)
+        )
+        return()
+      }
+
+      snapshot <- glm_store$refresh()
+      lightning_snapshot(snapshot)
+      flashes <- snapshot$flashes
+      session$sendCustomMessage(
+        "alertar:lightning",
+        list(
+          mapId = session$ns("forecast_map"),
+          active = TRUE,
+          windowSeconds = 5 * 60,
+          flashes = list(
+            lon = unname(flashes$lon),
+            lat = unname(flashes$lat),
+            energy = unname(flashes$energy),
+            observedAt = unname(flashes$observed_at)
+          )
+        )
+      )
     })
 
     observe({
@@ -1026,6 +1059,7 @@ app_server <- function(store) {
       )
       updateCheckboxInput(session, "show_wind", label = tr(language, "wind_particles"))
       updateCheckboxInput(session, "show_fires", label = tr(language, "heat_spots"))
+      updateCheckboxInput(session, "show_lightning", label = tr(language, "lightning_flashes"))
       updateSliderInput(session, "forecast_transparency", label = tr(language, "forecast_transparency"))
       updateCheckboxInput(session, "show_weather", label = tr(language, "weather_imagery"))
       selected_weather_source_id <- isolate(input$weather_source %||% names(weather_catalog)[[1]])
@@ -1126,6 +1160,35 @@ app_server <- function(store) {
           tags$strong(timestamp),
           tags$small(tr(language, "weather_refresh", source$refresh_minutes, timezone_code(timezone))),
           tags$small(source$provider)
+        )
+      )
+    })
+
+    output$lightning_status <- renderUI({
+      language <- current_language()
+      timezone <- current_timezone()
+      snapshot <- lightning_snapshot()
+      if (is.null(snapshot)) {
+        return(div(class = "lightning-status is-loading", tr(language, "lightning_loading")))
+      }
+      if (!nrow(snapshot$flashes) && !is.null(snapshot$error)) {
+        return(div(class = "lightning-status is-error", tr(language, "lightning_unavailable")))
+      }
+      latest <- snapshot$latest
+      latest_label <- if (length(latest) && !is.na(latest)) {
+        format(
+          in_timezone(latest, timezone),
+          if (language == "en") "%Y-%m-%d · %H:%M:%S" else "%d/%m/%Y · %H:%M:%S",
+          tz = timezone
+        )
+      } else "—"
+      div(
+        class = "lightning-status", role = "status", `aria-live` = "polite",
+        span(class = "lightning-live-dot", `aria-hidden` = "true"),
+        div(
+          tags$strong(tr(language, "lightning_count", nrow(snapshot$flashes))),
+          tags$small(tr(language, "lightning_latest", latest_label, timezone_code(timezone))),
+          tags$small("NOAA GOES-East · GLM-L2-LCFA")
         )
       )
     })
