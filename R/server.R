@@ -493,6 +493,24 @@ app_server <- function(store) {
       ignoreInit = FALSE, ignoreNULL = FALSE
     )
 
+    observeEvent(
+      list(map_ready(), input$forecast_transparency),
+      {
+        req(map_ready())
+        transparency <- suppressWarnings(as.numeric(input$forecast_transparency %||% 18))
+        if (!is.finite(transparency)) transparency <- 18
+        transparency <- max(0, min(100, transparency))
+        session$sendCustomMessage(
+          "alertar:forecast-opacity",
+          list(
+            mapId = session$ns("forecast_map"),
+            opacity = 1 - transparency / 100
+          )
+        )
+      },
+      ignoreInit = FALSE, ignoreNULL = FALSE
+    )
+
     weather_refresh_minutes <- min(vapply(
       weather_catalog, function(source) source$refresh_minutes, numeric(1)
     ))
@@ -1008,6 +1026,7 @@ app_server <- function(store) {
       )
       updateCheckboxInput(session, "show_wind", label = tr(language, "wind_particles"))
       updateCheckboxInput(session, "show_fires", label = tr(language, "heat_spots"))
+      updateSliderInput(session, "forecast_transparency", label = tr(language, "forecast_transparency"))
       updateCheckboxInput(session, "show_weather", label = tr(language, "weather_imagery"))
       selected_weather_source_id <- isolate(input$weather_source %||% names(weather_catalog)[[1]])
       if (!selected_weather_source_id %in% names(weather_catalog)) {

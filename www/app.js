@@ -7,6 +7,7 @@
   const latestRasterTokens = new Map();
   const mapLanguageRequests = new Map();
   const weatherObservationStates = new Map();
+  const forecastOpacityRequests = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
   let handlersRegistered = false;
@@ -334,8 +335,11 @@
           id: "forecast",
           type: "raster",
           source: "forecast",
+          layout: {
+            visibility: (forecastOpacityRequests.get(message.mapId) ?? .82) <= 0 ? "none" : "visible"
+          },
           paint: {
-            "raster-opacity": .82,
+            "raster-opacity": forecastOpacityRequests.get(message.mapId) ?? .82,
             "raster-fade-duration": 120,
             "raster-resampling": "linear"
           }
@@ -348,6 +352,24 @@
     } catch (error) {
       console.error("Falha ao atualizar raster:", error);
       acknowledge(false, String(error));
+    }
+  }
+
+  async function updateForecastOpacity(message) {
+    const requested = Number(message.opacity);
+    const opacity = Number.isFinite(requested) ? Math.max(0, Math.min(1, requested)) : .82;
+    forecastOpacityRequests.set(message.mapId, opacity);
+    const el = getMapElement(message.mapId);
+    if (!el) return;
+    let attempts = 0;
+    while ((!el.map || !el.map.isStyleLoaded()) && attempts++ < 80) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!el.map || !el.map.isStyleLoaded()) return;
+    if (el.map.getLayer("forecast")) {
+      el.map.setLayoutProperty("forecast", "visibility", opacity <= 0 ? "none" : "visible");
+      el.map.setPaintProperty("forecast", "raster-opacity", opacity);
+      el.map.triggerRepaint();
     }
   }
 
@@ -820,6 +842,7 @@
     handlersRegistered = true;
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
+    Shiny.addCustomMessageHandler("alertar:forecast-opacity", updateForecastOpacity);
     Shiny.addCustomMessageHandler("alertar:weather-observation", updateWeatherObservation);
     Shiny.addCustomMessageHandler("alertar:preload", preloadResources);
     Shiny.addCustomMessageHandler("alertar:language", localizeMap);

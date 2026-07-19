@@ -20,7 +20,7 @@ translations <- list(
   pt = list(
     app_title = "AlertAr Saúde | Previsão atmosférica",
     layer_heading = "CAMADA ATMOSFÉRICA", local_heading = "PREVISÃO LOCAL",
-    wind_particles = "Partículas de vento", heat_spots = "Focos de calor (INPE/BDQueimadas)",
+    forecast_transparency = "Transparência da previsão", wind_particles = "Partículas de vento", heat_spots = "Focos de calor (INPE/BDQueimadas)",
     weather_imagery = "Imagens meteorológicas",
     weather_heading = "OBSERVAÇÃO RECENTE", weather_source = "Fonte", weather_product = "Produto",
     weather_source_goes_east = "GOES-East · NASA GIBS",
@@ -104,7 +104,7 @@ translations <- list(
   es = list(
     app_title = "AlertAr Salud | Pronóstico atmosférico",
     layer_heading = "CAPA ATMOSFÉRICA", local_heading = "PRONÓSTICO LOCAL",
-    wind_particles = "Partículas de viento", heat_spots = "Focos de calor (INPE/BDQueimadas)",
+    forecast_transparency = "Transparencia del pronóstico", wind_particles = "Partículas de viento", heat_spots = "Focos de calor (INPE/BDQueimadas)",
     weather_imagery = "Imágenes meteorológicas",
     weather_heading = "OBSERVACIÓN RECIENTE", weather_source = "Fuente", weather_product = "Producto",
     weather_source_goes_east = "GOES-East · NASA GIBS",
@@ -179,7 +179,7 @@ translations <- list(
   fr = list(
     app_title = "AlertAr Santé | Prévisions atmosphériques",
     layer_heading = "COUCHE ATMOSPHÉRIQUE", local_heading = "PRÉVISION LOCALE",
-    wind_particles = "Particules de vent", heat_spots = "Foyers d’incendie (INPE/BDQueimadas)",
+    forecast_transparency = "Transparence de la prévision", wind_particles = "Particules de vent", heat_spots = "Foyers d’incendie (INPE/BDQueimadas)",
     weather_imagery = "Images météorologiques",
     weather_heading = "OBSERVATION RÉCENTE", weather_source = "Source", weather_product = "Produit",
     weather_source_goes_east = "GOES-East · NASA GIBS",
@@ -254,7 +254,7 @@ translations <- list(
   en = list(
     app_title = "AlertAr Health | Atmospheric forecast",
     layer_heading = "ATMOSPHERIC LAYER", local_heading = "LOCAL FORECAST",
-    wind_particles = "Wind particles", heat_spots = "Active fires (INPE/BDQueimadas)",
+    forecast_transparency = "Forecast transparency", wind_particles = "Wind particles", heat_spots = "Active fires (INPE/BDQueimadas)",
     weather_imagery = "Weather imagery",
     weather_heading = "RECENT OBSERVATION", weather_source = "Source", weather_product = "Product",
     weather_source_goes_east = "GOES-East · NASA GIBS",

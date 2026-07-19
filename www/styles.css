@@ -46,6 +46,18 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
 .indicator-name { margin-top: 13px; color: var(--ink); font-size: 14px; font-weight: 600; }
 .variable-panel p { margin: 5px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .source-label { font-size: 8px; }
+.forecast-transparency-control { margin-top: 10px; }
+.forecast-transparency-control .form-group,
+.forecast-transparency-control .shiny-input-container { width: 100%; margin: 0; }
+.forecast-transparency-control label { margin-bottom: 2px; color: #aebfc8; font-size: 10px; font-weight: 600; }
+.forecast-transparency-control .irs--shiny { height: 35px; }
+.forecast-transparency-control .irs--shiny .irs-line { top: 18px; height: 4px; background: #263b45; border: 0; }
+.forecast-transparency-control .irs--shiny > .irs-bar { top: 18px; height: 4px; background: var(--accent); border: 0; }
+.forecast-transparency-control .irs--shiny > .irs-handle { top: 12px; width: 16px; height: 16px; background: #f5fffd; border: 4px solid var(--accent); box-shadow: 0 0 9px rgba(53,212,180,.42); }
+.forecast-transparency-control .irs--shiny .irs-min,
+.forecast-transparency-control .irs--shiny .irs-max { display: none; }
+.forecast-transparency-control .irs--shiny .irs-single { top: -1px; padding: 2px 5px; color: #06120f; background: var(--accent); font: 700 7px/1.2 "Space Mono"; }
+.forecast-transparency-control .irs--shiny .irs-single::before { border-top-color: var(--accent); }
 .divider { height: 1px; margin: 15px 0 11px; background: var(--line); }
 .layer-switches .form-check { min-height: 0; margin: 8px 0; }
 .layer-switches label { color: #bdcbd4; font-size: 12px; }
@@ -331,6 +343,10 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
   .place-panel .selectize-input, .selectize-dropdown { font-size: 16px !important; }
   .variable-panel { bottom: calc(130px + env(safe-area-inset-bottom)); width: calc(100% - 24px); max-height: calc(100dvh - 280px); }
   .variable-panel select { min-height: 40px; font-size: 16px; }
+  .forecast-transparency-control .irs--shiny { height: 42px; }
+  .forecast-transparency-control .irs--shiny .irs-line,
+  .forecast-transparency-control .irs--shiny > .irs-bar { top: 21px; height: 5px; }
+  .forecast-transparency-control .irs--shiny > .irs-handle { top: 11px; width: 24px; height: 24px; border-width: 5px; }
   .timeline-panel { padding: 11px 12px 14px; }
   .timeline-meta { gap: 8px; }
   .timeline-title { display: none; }

@@ -689,6 +689,13 @@ app_ui <- function(store) {
         div(class = "panel-heading", span(id = "label-layer-heading", tr("pt", "layer_heading"))),
         selectInput("indicator", NULL, choices = indicator_choices, selected = store$default_indicator),
         uiOutput("indicator_summary"),
+        div(
+          class = "forecast-transparency-control",
+          sliderInput(
+            "forecast_transparency", tr("pt", "forecast_transparency"),
+            min = 0, max = 100, value = 18, step = 5, post = "%", ticks = FALSE
+          )
+        ),
         div(class = "divider"),
         div(
           class = "layer-switches forecast-overlays",
