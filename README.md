@@ -51,7 +51,9 @@ Os rasters presentes determinam as camadas exibidas. O banco `cams_forecast.duck
 A área de relatórios compara a unidade selecionada com unidades do mesmo tipo no
 estado e no país. Os rankings, horas acima da referência e horas por faixa são
 calculados no DuckDB sem formar médias espaciais estaduais ou nacionais. O
-resultado pode ser exportado como um único arquivo HTML autocontido.
+relatório inclui gráficos comparativos e tabelas pesquisáveis, ordenáveis e
+paginadas. O resultado pode ser exportado como um único arquivo HTML
+autocontido, mantendo essas interações.
 
 ## Arquitetura
 
@@ -60,4 +62,5 @@ resultado pode ser exportado como um único arquivo HTML autocontido.
 - `R/ui.R`: interface responsiva em tela cheia.
 - `R/server.R`: reatividade, proxy MapLibre, timeline e downloads.
 - `www/app.js`: particulas de vento sincronizadas ao mapa.
+- `www/report.js`: interatividade das tabelas e escalas dos relatorios.
 - `www/styles.css`: identidade visual escura.
