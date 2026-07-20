@@ -40,7 +40,7 @@ de dados.
 
 O arquivo externo de focos pode conservar os três dias exigidos pelo app
 histórico. Nesta interface, IDs repetidos e coordenadas inválidas são removidos e
-o mapa apresenta, por padrão, apenas as últimas 24 horas disponíveis. A janela
+o mapa apresenta, por padrão, apenas as últimas 6 horas disponíveis. A janela
 pode ser alterada com `ALERTAR_FIRE_WINDOW_HOURS`.
 
 O modo totem também pode ser ativado no carregamento pelo parâmetro de URL

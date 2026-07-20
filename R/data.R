@@ -45,7 +45,7 @@ normalize_fire_data <- function(fires) {
   fires <- fires[!duplicated(key), , drop = FALSE]
 
   window_hours <- suppressWarnings(as.numeric(
-    Sys.getenv("ALERTAR_FIRE_WINDOW_HOURS", unset = "24")
+    Sys.getenv("ALERTAR_FIRE_WINDOW_HOURS", unset = "6")
   ))
   if (
     is.finite(window_hours) && window_hours > 0 &&
@@ -443,9 +443,20 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     result <- DBI::dbGetQuery(con, sql, params = params)
     if (nrow(result)) {
       result$date <- as.POSIXct(result$date, tz = "UTC")
+      missing_dates <- is.na(result$date)
+      if (any(missing_dates) && any(!missing_dates)) {
+        interval_seconds <- as.numeric(cfg$interval) * 3600
+        expected_dates <- min(result$date, na.rm = TRUE) +
+          seq.int(0, by = interval_seconds, length.out = nrow(result))
+        result$date[missing_dates] <- expected_dates[missing_dates]
+      }
       series_scale <- if (is.null(cfg$series_scale)) 1 else cfg$series_scale
       series_offset <- if (is.null(cfg$series_offset)) 0 else cfg$series_offset
       result$value <- result$value * series_scale + series_offset
+      result <- result[
+        is.finite(as.numeric(result$date)) & is.finite(result$value),
+        , drop = FALSE
+      ]
     }
     query_cache$set(key, result)
     result
@@ -558,7 +569,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
         "WITH ordered AS (",
         "SELECT %s AS territory_key, date, %s AS metric_value,",
         "LEAD(date) OVER (PARTITION BY %s ORDER BY date) AS next_date",
-        "FROM %s WHERE value IS NOT NULL",
+        "FROM %s WHERE value IS NOT NULL AND date IS NOT NULL",
         "), timed AS (",
         "SELECT territory_key, date, metric_value, next_date,",
         "MIN(date) OVER (PARTITION BY territory_key) AS series_start,",
