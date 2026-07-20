@@ -1165,11 +1165,11 @@ app_server <- function(store, glm_store = NULL) {
       selected_weather_product_id <- isolate(
         input$weather_product %||% names(weather_catalog[[selected_weather_source_id]]$products)[[1]]
       )
-      updateSelectInput(
+      updateSelectizeInput(
         session, "weather_source",
         choices = localized_weather_source_choices(language), selected = selected_weather_source_id
       )
-      updateSelectInput(
+      updateSelectizeInput(
         session, "weather_product",
         choices = localized_weather_product_choices(selected_weather_source_id, language), selected = selected_weather_product_id
       )
@@ -1242,7 +1242,7 @@ app_server <- function(store, glm_store = NULL) {
       current <- isolate(input$weather_product)
       choices <- localized_weather_product_choices(source_id, current_language())
       selected <- if (current %in% unname(choices)) current else unname(choices)[[1]]
-      updateSelectInput(session, "weather_product", choices = choices, selected = selected)
+      updateSelectizeInput(session, "weather_product", choices = choices, selected = selected)
     }, ignoreInit = TRUE)
 
     output$weather_status <- renderUI({

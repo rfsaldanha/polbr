@@ -857,13 +857,17 @@ app_ui <- function(store) {
                     class = "weather-source-card",
                     div(class = "weather-card-kicker", icon("sliders"), span(id = "label-weather-heading", tr("pt", "weather_heading"))),
                     tags$label(`for` = "weather_source", id = "label-weather-source", tr("pt", "weather_source")),
-                    selectInput(
+                    selectizeInput(
                       "weather_source", NULL,
                       choices = stats::setNames(default_weather_source, tr("pt", weather_catalog[[default_weather_source]]$label_key)),
-                      selected = default_weather_source
+                      selected = default_weather_source,
+                      options = list(
+                        dropdownParent = "body",
+                        dropdownClass = "selectize-dropdown weather-layer-dropdown"
+                      )
                     ),
                     tags$label(`for` = "weather_product", id = "label-weather-product", tr("pt", "weather_product")),
-                    selectInput(
+                    selectizeInput(
                       "weather_product", NULL,
                       choices = stats::setNames(
                         names(weather_catalog[[default_weather_source]]$products),
@@ -873,7 +877,11 @@ app_ui <- function(store) {
                           character(1)
                         )
                       ),
-                      selected = default_weather_product
+                      selected = default_weather_product,
+                      options = list(
+                        dropdownParent = "body",
+                        dropdownClass = "selectize-dropdown weather-layer-dropdown"
+                      )
                     ),
                     uiOutput("weather_status", class = "weather-status-output")
                   )
