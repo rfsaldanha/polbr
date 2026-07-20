@@ -56,7 +56,10 @@ local_midnight_ticks <- function(time, timezone) {
     paste(dates, "00:00:00"),
     format = "%Y-%m-%d %H:%M:%S", tz = timezone
   )
-  ticks[as.numeric(ticks) >= time_range[[1]] & as.numeric(ticks) <= time_range[[2]]]
+  tick_values <- as.numeric(ticks)
+  valid <- !is.na(ticks) &
+    tick_values >= time_range[[1]] & tick_values <= time_range[[2]]
+  ticks[valid]
 }
 
 forecast_y_range <- function(data, cfg) {
@@ -836,15 +839,27 @@ app_server <- function(store, glm_store = NULL) {
     output$timeline_labels <- renderUI({
       language <- current_language()
       timezone <- current_timezone()
-      horizons <- seq(0, 120, by = 24)
-      times <- in_timezone(forecast_origin() + horizons * 3600, timezone)
+      origin <- forecast_origin()
+      max_horizon <- 120
+      times <- local_midnight_ticks(
+        c(origin, origin + max_horizon * 3600),
+        timezone
+      )
+      horizons <- as.numeric(difftime(times, origin, units = "hours"))
       date_format <- if (language == "en") "%m/%d" else "%d/%m"
 
       tagList(lapply(seq_along(horizons), function(index) {
+        edge_class <- if (isTRUE(all.equal(horizons[[index]], 0))) {
+          " timeline-edge-start"
+        } else if (isTRUE(all.equal(horizons[[index]], max_horizon))) {
+          " timeline-edge-end"
+        } else {
+          ""
+        }
         span(
-          class = "timeline-date-label",
+          class = paste0("timeline-date-label", edge_class),
           `data-horizon` = horizons[[index]],
-          style = sprintf("--timeline-position: %.4f%%", 100 * horizons[[index]] / max(horizons)),
+          style = sprintf("--timeline-position: %.4f%%", 100 * horizons[[index]] / max_horizon),
           span(class = "timeline-label-date", format(times[[index]], date_format, tz = timezone)),
           span(class = "timeline-label-time", format(times[[index]], "%H:%M", tz = timezone))
         )
