@@ -1,5 +1,83 @@
+read_forecast_raster <- function(path) {
+  withCallingHandlers(
+    terra::rast(path),
+    warning = function(warning) {
+      message <- conditionMessage(warning)
+      if (grepl("skipped array \\(different geometry\\): /valid_time", message)) {
+        invokeRestart("muffleWarning")
+      }
+    }
+  )
+}
+
+normalize_fire_data <- function(fires) {
+  if (is.null(fires)) return(NULL)
+  if (inherits(fires, "sf")) fires <- sf::st_drop_geometry(fires)
+  if (!is.data.frame(fires)) stop("O arquivo de focos de calor deve conter um data frame.")
+  if (!all(c("lat", "lon") %in% names(fires))) {
+    stop("O arquivo de focos de calor deve conter as colunas 'lat' e 'lon'.")
+  }
+
+  latitude <- suppressWarnings(as.numeric(fires$lat))
+  longitude <- suppressWarnings(as.numeric(fires$lon))
+  valid <- is.finite(latitude) & is.finite(longitude) &
+    latitude >= -90 & latitude <= 90 & longitude >= -180 & longitude <= 180
+  fires <- fires[valid, , drop = FALSE]
+  fires$lat <- latitude[valid]
+  fires$lon <- longitude[valid]
+  if (!nrow(fires)) return(fires)
+
+  key <- if ("id" %in% names(fires)) {
+    id <- trimws(as.character(fires$id))
+    fallback <- paste(
+      round(fires$lat, 5), round(fires$lon, 5),
+      if ("data_hora_gmt" %in% names(fires)) as.character(fires$data_hora_gmt) else "",
+      sep = "|"
+    )
+    ifelse(!is.na(id) & nzchar(id), id, fallback)
+  } else {
+    paste(
+      round(fires$lat, 5), round(fires$lon, 5),
+      if ("data_hora_gmt" %in% names(fires)) as.character(fires$data_hora_gmt) else "",
+      sep = "|"
+    )
+  }
+  fires <- fires[!duplicated(key), , drop = FALSE]
+
+  window_hours <- suppressWarnings(as.numeric(
+    Sys.getenv("ALERTAR_FIRE_WINDOW_HOURS", unset = "24")
+  ))
+  if (
+    is.finite(window_hours) && window_hours > 0 &&
+      "data_hora_gmt" %in% names(fires)
+  ) {
+    observed_at <- suppressWarnings(as.POSIXct(
+      as.character(fires$data_hora_gmt), tz = "UTC",
+      tryFormats = c("%Y-%m-%d %H:%M:%OS", "%Y-%m-%dT%H:%M:%OSZ")
+    ))
+    if (any(!is.na(observed_at))) {
+      latest <- max(observed_at, na.rm = TRUE)
+      recent <- !is.na(observed_at) & observed_at >= latest - window_hours * 3600
+      fires <- fires[recent, , drop = FALSE]
+    }
+  }
+  rownames(fires) <- NULL
+  fires
+}
+
+read_fire_data <- function(path) {
+  if (!file.exists(path)) return(NULL)
+  tryCatch(
+    normalize_fire_data(readRDS(path)),
+    error = function(error) {
+      warning("Falha ao ler focos de calor: ", conditionMessage(error))
+      NULL
+    }
+  )
+}
+
 render_raster_image_file <- function(path, cfg, index, target_size, image_dir, revision) {
-  raster <- terra::rast(path)
+  raster <- read_forecast_raster(path)
   layer <- raster[[index]] * cfg$scale + cfg$offset
   layer <- terra::project(layer, "EPSG:3857", method = "bilinear")
   longest_side <- max(terra::ncol(layer), terra::nrow(layer))
@@ -99,7 +177,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   load_rasters <- function() {
     lapply(catalog, function(x) {
       path <- file.path(data_dir, x$file)
-      if (file.exists(path)) terra::rast(path) else NULL
+      if (file.exists(path)) read_forecast_raster(path) else NULL
     })
   }
   build_raster_horizons <- function(values) {
@@ -157,7 +235,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     if (length(existing)) existing[[1]] else candidates[[1]]
   }
   fire_path <- resolve_fire_path()
-  fires <- if (file.exists(fire_path)) readRDS(fire_path) else NULL
+  fires <- read_fire_data(fire_path)
   fire_mtime <- if (file.exists(fire_path)) file.info(fire_path)$mtime[[1]] else as.POSIXct(NA)
 
   refresh_fires <- function(force = FALSE) {
@@ -171,10 +249,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
       isTRUE(all.equal(new_fire_mtime, fire_mtime))
     if (!isTRUE(force) && unchanged) return(FALSE)
 
-    new_fires <- tryCatch(readRDS(new_fire_path), error = function(error) {
-      warning("Falha ao recarregar focos de calor: ", conditionMessage(error))
-      NULL
-    })
+    new_fires <- read_fire_data(new_fire_path)
     if (is.null(new_fires)) return(FALSE)
 
     fires <<- new_fires

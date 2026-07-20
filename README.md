@@ -7,7 +7,8 @@ Painel Shiny/WebGL para explorar a previsao atmosferica do CAMS no Brasil. A int
 ```r
 install.packages(c(
   "shiny", "bslib", "mapgl", "terra", "sf", "DBI", "duckdb",
-  "jsonlite", "png", "cachem", "curl", "ncdf4", "promises", "future"
+  "jsonlite", "png", "cachem", "curl", "ncdf4", "promises", "future",
+  "parallelly"
 ))
 shiny::runApp()
 ```
@@ -22,8 +23,10 @@ Os quadros do mapa sao reamostrados em memoria para cerca de 1024 pixels no
 maior eixo antes da aplicacao da paleta, mantendo a grade cientifica original e
 melhorando a definicao no navegador. Para ajustar esse limite, use, por exemplo,
 `ALERTAR_RASTER_SIZE=1536`; valores entre 256 e 2048 sao aceitos.
-O pré-carregamento dos rasters e a coleta de raios usam dois processos auxiliares
-por padrão. Defina `ALERTAR_ASYNC_WORKERS` entre 2 e 4 para ajustar esse limite.
+O pré-carregamento dos rasters e a coleta de raios usam até dois processos por
+padrão, respeitando os núcleos disponíveis. Defina `ALERTAR_ASYNC_WORKERS` entre
+1 e 4 para ajustar esse limite; com apenas um worker, o app usa execução
+sequencial sem tentar abrir um cluster local.
 
 No modo totem, os dados de previsão são reabertos automaticamente a cada três
 horas. O intervalo pode ser ajustado, em horas, com
@@ -34,6 +37,11 @@ por alteração a cada 10 minutos, sem interromper a animação; esse intervalo 
 ser configurado com `ALERTAR_TOTEM_LIVE_REFRESH_MINUTES=10`. A produção e a
 substituição desse arquivo continuam sendo responsabilidade do processo externo
 de dados.
+
+O arquivo externo de focos pode conservar os três dias exigidos pelo app
+histórico. Nesta interface, IDs repetidos e coordenadas inválidas são removidos e
+o mapa apresenta, por padrão, apenas as últimas 24 horas disponíveis. A janela
+pode ser alterada com `ALERTAR_FIRE_WINDOW_HOURS`.
 
 O modo totem também pode ser ativado no carregamento pelo parâmetro de URL
 `totem`. São aceitos `?totem`, `?totem=1`, `?totem=true`, `?totem=yes`,

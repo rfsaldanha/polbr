@@ -12,7 +12,8 @@ required_packages <- c(
   "curl",
   "ncdf4",
   "promises",
-  "future"
+  "future",
+  "parallelly"
 )
 
 missing_packages <- required_packages[
@@ -31,8 +32,14 @@ suppressPackageStartupMessages(library(shiny))
 
 options(shiny.autoreload = FALSE, shiny.maxRequestSize = 30 * 1024^2)
 async_workers <- suppressWarnings(as.integer(Sys.getenv("ALERTAR_ASYNC_WORKERS", "2")))
-if (!is.finite(async_workers) || async_workers < 2L) async_workers <- 2L
-future::plan(future::multisession, workers = min(async_workers, 4L))
+if (!is.finite(async_workers) || async_workers < 1L) async_workers <- 2L
+available_workers <- max(1L, as.integer(parallelly::availableCores())[[1]])
+async_workers <- min(async_workers, available_workers, 4L)
+if (async_workers > 1L) {
+  future::plan(future::multisession, workers = async_workers)
+} else {
+  future::plan(future::sequential)
+}
 
 invisible(lapply(
   c("R/config.R", "R/i18n.R", "R/glm.R", "R/data.R", "R/ui.R", "R/server.R"),

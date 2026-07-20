@@ -51,4 +51,6 @@ rsconnect/
 # Ignore data files
 *.duckdb
 *.nc
+/data/
+.DS_Store
 prompt.txt
