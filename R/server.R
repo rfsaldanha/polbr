@@ -1052,6 +1052,16 @@ app_server <- function(store, glm_store = NULL) {
     totem_overview_hold_ms <- 1000
     totem_overview_zoom <- 2.25
 
+    observe({
+      session$sendCustomMessage(
+        "alertar:lightning-performance",
+        list(
+          mapId = session$ns("forecast_map"),
+          reduced = isTRUE(playing())
+        )
+      )
+    })
+
     update_play_button <- function() {
       language <- isolate(current_language())
       is_playing <- isolate(playing())

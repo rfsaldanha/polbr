@@ -9,6 +9,7 @@
   const weatherObservationStates = new Map();
   const forecastOpacityRequests = new Map();
   const lightningOverlays = new Map();
+  const lightningPerformanceModes = new Map();
   const firePulseStates = new Map();
   let totemActive = false;
   let fullscreenEventsBound = false;
@@ -297,7 +298,7 @@
     const state = {
       canvas, ctx, flashes: [], active: false, moving: false,
       frame: null, lastDraw: 0, windowSeconds: 300,
-      initialized: false, knownKeys: new Set()
+      initialized: false, knownKeys: new Set(), performanceMode: false
     };
 
     function resize() {
@@ -332,7 +333,8 @@
         clear();
         return;
       }
-      if (timestamp - state.lastDraw < 33) {
+      const frameInterval = state.performanceMode ? 200 : 33;
+      if (timestamp - state.lastDraw < frameInterval) {
         start();
         return;
       }
@@ -381,7 +383,7 @@
         residualBuckets[residualIndex].core.arc(point.x, point.y, coreRadius, 0, Math.PI * 2);
         residualBuckets[residualIndex].count++;
 
-        if (burstAge <= 2) {
+        if (!state.performanceMode && burstAge <= 2) {
           const progress = Math.max(0, Math.min(1, burstAge / 2));
           const progressBand = Math.min(burstBands - 1, Math.floor(progress * burstBands));
           const burstIndex = progressBand * energyBands + energyBand;
@@ -438,6 +440,11 @@
       state.active = Boolean(active);
       if (state.active) start();
       else stop();
+    };
+    state.setPerformanceMode = function(reduced) {
+      state.performanceMode = Boolean(reduced);
+      state.lastDraw = 0;
+      if (state.active) start();
     };
     state.setFlashes = function(flashes, windowSeconds) {
       state.windowSeconds = Number(windowSeconds) || 300;
@@ -505,6 +512,7 @@
     if (!el.map) return;
     if (!overlay) {
       overlay = makeLightningOverlay(el, el.map);
+      overlay.setPerformanceMode(Boolean(lightningPerformanceModes.get(message.mapId)));
       lightningOverlays.set(message.mapId, overlay);
     }
     overlay.setActive(Boolean(message.active));
@@ -538,6 +546,13 @@
       }
     }
     overlay.setFlashes(flashes, message.windowSeconds);
+  }
+
+  function updateLightningPerformance(message) {
+    const reduced = Boolean(message.reduced);
+    lightningPerformanceModes.set(message.mapId, reduced);
+    const overlay = lightningOverlays.get(message.mapId);
+    if (overlay) overlay.setPerformanceMode(reduced);
   }
 
   function makeFirePulse(map, layerId) {
@@ -1255,6 +1270,7 @@
     handlersRegistered = true;
     Shiny.addCustomMessageHandler("alertar:wind", updateWind);
     Shiny.addCustomMessageHandler("alertar:lightning", updateLightning);
+    Shiny.addCustomMessageHandler("alertar:lightning-performance", updateLightningPerformance);
     Shiny.addCustomMessageHandler("alertar:fire-data", updateFireData);
     Shiny.addCustomMessageHandler("alertar:fire-pulse", updateFirePulse);
     Shiny.addCustomMessageHandler("alertar:raster", updateRaster);
