@@ -1480,7 +1480,6 @@ app_server <- function(store, glm_store = NULL) {
     live_refresh_timer <- reactiveTimer(totem_live_refresh_minutes * 60 * 1000, session)
     observe({
       live_refresh_timer()
-      if (!isTRUE(isolate(totem_active()))) return()
 
       fires_changed <- tryCatch(
         store$refresh_fires(),
@@ -1493,6 +1492,7 @@ app_server <- function(store, glm_store = NULL) {
         }
       )
       if (isTRUE(fires_changed)) send_fire_update()
+      if (!isTRUE(isolate(totem_active()))) return()
 
       # Reativa os observadores das fontes quase em tempo real. Cada fonte
       # preserva sua própria janela de cache (GLM, GOES e GPM IMERG).

@@ -164,7 +164,7 @@ create_glm_store <- function(
     records_snapshot <- cached_records()
     work <- promises::future_promise({
       glm_refresh_payload(now, bounds, window_minutes, records_snapshot)
-    })
+    }, seed = TRUE)
     inflight <<- promises::then(
       work,
       onFulfilled = function(payload) {

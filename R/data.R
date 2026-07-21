@@ -1,9 +1,20 @@
+is_forecast_raster_metadata_warning <- function(warning) {
+  message <- conditionMessage(warning)
+  valid_time_array <-
+    grepl("different geometry", message, fixed = TRUE) &&
+    grepl("/valid_time", message, fixed = TRUE)
+  auxiliary_dimension <-
+    grepl("GDAL Message 1: dimension", message, fixed = TRUE) &&
+    grepl("(forecast_reference_time|forecast_period|time)", message) &&
+    grepl("is not a (Time|Longitude/X|Latitude/Y) dimension", message)
+  valid_time_array || auxiliary_dimension
+}
+
 read_forecast_raster <- function(path) {
   withCallingHandlers(
     terra::rast(path),
     warning = function(warning) {
-      message <- conditionMessage(warning)
-      if (grepl("skipped array \\(different geometry\\): /valid_time", message)) {
+      if (is_forecast_raster_metadata_warning(warning)) {
         invokeRestart("muffleWarning")
       }
     }
@@ -56,8 +67,10 @@ normalize_fire_data <- function(fires) {
       tryFormats = c("%Y-%m-%d %H:%M:%OS", "%Y-%m-%dT%H:%M:%OSZ")
     ))
     if (any(!is.na(observed_at))) {
-      latest <- max(observed_at, na.rm = TRUE)
-      recent <- !is.na(observed_at) & observed_at >= latest - window_hours * 3600
+      reference_now <- as.POSIXct(Sys.time(), tz = "UTC")
+      recent <- !is.na(observed_at) &
+        observed_at >= reference_now - window_hours * 3600 &
+        observed_at <= reference_now + 5 * 60
       fires <- fires[recent, , drop = FALSE]
     }
   }
@@ -174,6 +187,13 @@ validate_wind_files <- function(data_dir, horizons) {
 }
 
 create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
+  read_generation <- function() {
+    marker <- file.path(data_dir, ".cams_generation")
+    if (!file.exists(marker)) return(NA_character_)
+    value <- trimws(readLines(marker, n = 1L, warn = FALSE))
+    if (length(value) && nzchar(value[[1]])) value[[1]] else NA_character_
+  }
+  current_generation <- read_generation()
   load_rasters <- function() {
     lapply(catalog, function(x) {
       path <- file.path(data_dir, x$file)
@@ -380,7 +400,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
       render_raster_image_file(
         path, cfg, index, raster_target_size, image_dir, current_revision
       )
-    })
+    }, seed = TRUE)
     promise <- promises::then(
       promise,
       onFulfilled = function(result) {
@@ -665,6 +685,10 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
   }
 
   refresh <- function() {
+    new_generation <- read_generation()
+    if (!is.na(new_generation) && identical(new_generation, current_generation)) {
+      return(FALSE)
+    }
     new_rasters <- tryCatch(load_rasters(), error = function(error) {
       warning("Falha ao recarregar rasters: ", conditionMessage(error))
       NULL
@@ -700,6 +724,7 @@ create_data_store <- function(data_dir, catalog, coverage = coverage_config()) {
     unlink(list.files(image_dir, full.names = TRUE), recursive = TRUE, force = TRUE)
     refresh_fires()
     revision(shiny::isolate(revision()) + 1L)
+    current_generation <<- new_generation
 
     if (!is.null(old_con) && DBI::dbIsValid(old_con)) {
       DBI::dbDisconnect(old_con, shutdown = TRUE)

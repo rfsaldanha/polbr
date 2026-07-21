@@ -12,7 +12,7 @@ indicator_catalog <- function() {
 
   list(
     iqar = list(
-      label = "Qualidade do ar", short = "IQAr", unit = "index",
+      label = "Indicador instantâneo de qualidade do ar", short = "IQAr instantâneo", unit = "index",
       file = "iqar.nc", table = "iqar_mun_forecast", interval = 3,
       scale = 1, offset = 0, range = c(0, 240), digits = 0,
       colors = c("#34d399", "#facc15", "#fb923c", "#f43f5e", "#a855f7"),
@@ -23,8 +23,8 @@ indicator_catalog <- function() {
         chart_reference(120, "Ruim", "limite 120", "#fb923c", conama_iqar_url),
         chart_reference(200, "Muito ruim", "limite 200", "#f43f5e", conama_iqar_url)
       ),
-      reference_note = "Faixas de comunicação do IQAr segundo orientação técnica do CONAMA.",
-      description = "Indice integrado da qualidade do ar segundo as faixas do CONAMA."
+      reference_note = "Indicador instantâneo baseado nas faixas de comunicação do CONAMA; não aplica os períodos regulamentares do IQAr.",
+      description = "Indicador instantâneo integrado, baseado nas concentrações previstas e nas faixas de comunicação do CONAMA; não substitui o IQAr regulamentar."
     ),
     pm25 = list(
       label = "Particulas finas", short = "PM2.5", unit = "ug/m3",
@@ -95,7 +95,7 @@ indicator_catalog <- function() {
     temp = list(
       label = "Temperatura", short = "Temperatura", unit = "C",
       file = "cams_forecast_temp.nc", table = "temp_mun_forecast", interval = 1,
-      scale = 1, offset = -273.15, series_offset = -1,
+      scale = 1, offset = -273.15,
       range = c(-5, 45), digits = 1,
       colors = c("#312e81", "#2563eb", "#22d3ee", "#a3e635", "#facc15", "#fb923c", "#ef4444"),
       breaks = NULL,
