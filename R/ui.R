@@ -841,6 +841,10 @@ app_ui <- function(store) {
                   class = "layer-option-meta",
                   span(id = "label-fires-detail", tr("pt", "heat_spots_detail")),
                   span(id = "label-near-live-fires", class = "freshness-badge near-live-badge", tr("pt", "near_live_badge"))
+                ),
+                conditionalPanel(
+                  condition = "input.show_fires === true",
+                  uiOutput("fire_status", class = "fire-status-output")
                 )
               ),
               div(

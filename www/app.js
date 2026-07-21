@@ -563,6 +563,10 @@
       lastDraw: 0
     };
 
+    function opacityExpression(multiplier) {
+      return ["*", ["coalesce", ["get", "ageOpacity"], .92], multiplier];
+    }
+
     function ensureGlowLayer() {
       const pointLayer = map.getLayer(layerId);
       if (!pointLayer) return false;
@@ -574,7 +578,7 @@
           paint: {
             "circle-radius": 4,
             "circle-color": "#ff2419",
-            "circle-opacity": .24,
+            "circle-opacity": opacityExpression(.24),
             "circle-blur": .65,
             "circle-stroke-width": 0
           }
@@ -607,10 +611,10 @@
       const phase = (timestamp / 1000 * .25) % 1;
       const pulse = (1 - Math.cos(phase * Math.PI * 2)) / 2;
       map.setPaintProperty(glowLayerId, "circle-radius", 4 + pulse * 5.5);
-      map.setPaintProperty(glowLayerId, "circle-opacity", .25 * (1 - pulse * .78));
+      map.setPaintProperty(glowLayerId, "circle-opacity", opacityExpression(.25 * (1 - pulse * .78)));
       map.setPaintProperty(glowLayerId, "circle-blur", .62 + pulse * .22);
       map.setPaintProperty(layerId, "circle-radius", 2.35 + pulse * .45);
-      map.setPaintProperty(layerId, "circle-opacity", .94 - pulse * .08);
+      map.setPaintProperty(layerId, "circle-opacity", opacityExpression(.94 - pulse * .08));
       start();
     }
 
@@ -655,12 +659,21 @@
     const layerId = message.layerId || "fires";
     const longitude = Array.isArray(message.lon) ? message.lon : [];
     const latitude = Array.isArray(message.lat) ? message.lat : [];
-    const featureCount = Math.min(longitude.length, latitude.length);
+    const observedAt = Array.isArray(message.observedAt) ? message.observedAt : [];
+    const windowSeconds = Math.max(60, Number(message.windowSeconds) || 6 * 60 * 60);
+    const nowSeconds = Date.now() / 1000;
+    const featureCount = Math.min(longitude.length, latitude.length, observedAt.length);
     const geojson = {
       type: "FeatureCollection",
       features: Array.from({length: featureCount}, (_, index) => ({
         type: "Feature",
-        properties: {},
+        properties: {
+          observedAt: Number(observedAt[index]),
+          ageOpacity: Math.max(
+            .2,
+            Math.min(.95, .95 - Math.max(0, nowSeconds - Number(observedAt[index])) / windowSeconds * .75)
+          )
+        },
         geometry: {
           type: "Point",
           coordinates: [Number(longitude[index]), Number(latitude[index])]
@@ -686,11 +699,16 @@
         paint: {
           "circle-radius": 2.5,
           "circle-color": "#ff3b30",
-          "circle-opacity": .92,
+          "circle-opacity": ["*", ["coalesce", ["get", "ageOpacity"], .92], .94],
           "circle-stroke-width": 0
         }
       });
     }
+
+    map.setPaintProperty(
+      layerId, "circle-opacity",
+      ["*", ["coalesce", ["get", "ageOpacity"], .92], .94]
+    );
 
     const active = Boolean(message.active);
     map.setLayoutProperty(layerId, "visibility", active ? "visible" : "none");

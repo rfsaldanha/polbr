@@ -107,11 +107,12 @@ body { background: #071018; color: var(--ink); font-family: "DM Sans", sans-seri
 .weather-status strong { color: #cbd9e0; font: 700 8px/1.35 "Space Mono"; }
 .weather-status small { margin-top: 3px; color: #78909d; font: 7px/1.4 "Space Mono"; }
 .weather-product-legend { display: block; width: 100%; height: auto; margin-top: 7px; padding: 4px; background: rgba(244,248,250,.92); border-radius: 6px; }
-.lightning-status-output { display: block; margin: 7px 0 12px; padding: 8px 9px; background: rgba(255,186,52,.075); border: 1px solid rgba(255,190,70,.22); border-radius: 9px; }
-.lightning-status-output.recalculating { opacity: 1 !important; }
+.lightning-status-output, .fire-status-output { display: block; margin: 7px 0 12px; padding: 8px 9px; background: rgba(255,186,52,.075); border: 1px solid rgba(255,190,70,.22); border-radius: 9px; }
+.lightning-status-output.recalculating, .fire-status-output.recalculating { opacity: 1 !important; }
 .lightning-status { display: grid; grid-template-columns: 7px minmax(0, 1fr); align-items: start; gap: 7px; color: #b8cad3; font: 7px/1.4 "Space Mono"; }
 .lightning-status.is-loading { display: flex; align-items: center; gap: 8px; min-height: 16px; color: #e8d99d; font-weight: 700; }
 .lightning-status.is-error { display: block; }
+.fire-cache-warning { color: #efb772 !important; }
 .lightning-loading-spinner { flex: 0 0 auto; width: 13px; height: 13px; border: 2px solid rgba(255,190,70,.2); border-top-color: #ffe36e; border-radius: 50%; animation: report-spin .8s linear infinite; }
 .lightning-status.is-error { color: #ef9b72; }
 .lightning-live-dot { width: 6px; height: 6px; margin-top: 3px; background: #ffe36e; border-radius: 50%; box-shadow: 0 0 10px rgba(255,190,52,.9); animation: lightning-status-pulse 1.35s ease-in-out infinite; }

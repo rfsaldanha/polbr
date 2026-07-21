@@ -31,17 +31,19 @@ sequencial sem tentar abrir um cluster local.
 No modo totem, os dados de previsão são reabertos automaticamente a cada três
 horas. O intervalo pode ser ajustado, em horas, com
 `ALERTAR_TOTEM_REFRESH_HOURS=3`. As fontes observadas permanecem em atualização
-periódica durante o ciclo: raios GLM a cada minuto, imagens GOES a cada 10
-minutos e GPM IMERG a cada 30 minutos. O arquivo `bdq_focos.rds` é verificado
-por alteração a cada 10 minutos, sem interromper a animação; esse intervalo pode
-ser configurado com `ALERTAR_TOTEM_LIVE_REFRESH_MINUTES=10`. A produção e a
-substituição desse arquivo continuam sendo responsabilidade do processo externo
-de dados.
+periódica durante o ciclo: raios GLM a cada minuto, focos de calor do INPE a
+cada 10 minutos, imagens GOES a cada 10 minutos e GPM IMERG a cada 30 minutos.
+O intervalo dos focos pode ser configurado com
+`ALERTAR_FIRE_REFRESH_MINUTES=10`. A consulta usa os CSVs diários
+multissatélite do Programa Queimadas para hoje e ontem, preservando o último
+resultado válido em memória quando a fonte estiver temporariamente indisponível.
 
-O arquivo externo de focos pode conservar os três dias exigidos pelo app
-histórico. Nesta interface, IDs repetidos e coordenadas inválidas são removidos e
-o mapa apresenta, por padrão, apenas as últimas 6 horas disponíveis. A janela
-pode ser alterada com `ALERTAR_FIRE_WINDOW_HOURS`.
+O arquivo `bdq_focos.rds` é usado apenas como fallback na inicialização. IDs
+repetidos e coordenadas inválidas são removidos. Detecções sucessivas na mesma
+coordenada são consolidadas, mantendo a mais recente; a opacidade diminui com a
+idade. O mapa apresenta, por padrão, as detecções das últimas 6 horas em relação
+ao horário atual. A janela pode ser
+alterada com `ALERTAR_FIRE_WINDOW_HOURS`.
 
 O modo totem também pode ser ativado no carregamento pelo parâmetro de URL
 `totem`. São aceitos `?totem`, `?totem=1`, `?totem=true`, `?totem=yes`,

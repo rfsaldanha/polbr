@@ -199,7 +199,7 @@ rank_report_units <- function(data, categories, language) {
   data
 }
 
-app_server <- function(store, glm_store = NULL) {
+app_server <- function(store, glm_store = NULL, fire_store = NULL) {
   force(store)
   function(input, output, session) {
     catalog <- store$catalog
@@ -221,6 +221,10 @@ app_server <- function(store, glm_store = NULL) {
     if (!is.finite(totem_live_refresh_minutes) || totem_live_refresh_minutes <= 0) {
       totem_live_refresh_minutes <- 10
     }
+    fire_window_hours <- suppressWarnings(as.numeric(
+      Sys.getenv("ALERTAR_FIRE_WINDOW_HOURS", unset = "6")
+    ))
+    if (!is.finite(fire_window_hours) || fire_window_hours <= 0) fire_window_hours <- 6
     totem_live_refresh_trigger <- reactiveVal(0L)
 
     municipality_types <- tolower(as.character(territories$territory_type))
@@ -267,8 +271,11 @@ app_server <- function(store, glm_store = NULL) {
     pending_raster <- reactiveVal(NULL)
     lightning_snapshot <- reactiveVal(NULL)
     lightning_loading <- reactiveVal(FALSE)
+    fires_snapshot <- reactiveVal(if (is.null(fire_store)) NULL else fire_store$snapshot())
+    fires_loading <- reactiveVal(FALSE)
     raster_request_sequence <- 0L
     lightning_request_sequence <- 0L
+    fire_request_sequence <- 0L
 
     session$onFlushed(function() {
       language <- isolate(current_language())
@@ -419,17 +426,24 @@ app_server <- function(store, glm_store = NULL) {
       invisible(TRUE)
     }
 
-    send_fire_update <- function() {
+    send_fire_update <- function(fires = NULL) {
       if (!isTRUE(isolate(map_ready()))) return(invisible(FALSE))
-      fires <- store$fires()
+      if (is.null(fires)) {
+        snapshot <- isolate(fires_snapshot())
+        fires <- if (is.null(snapshot)) store$fires() else snapshot$fires
+      }
       if (is.null(fires) || !nrow(fires) || !all(c("lon", "lat") %in% names(fires))) {
-        longitude <- latitude <- numeric()
+        longitude <- latitude <- observed_at <- numeric()
       } else {
         longitude <- suppressWarnings(as.numeric(fires$lon))
         latitude <- suppressWarnings(as.numeric(fires$lat))
-        valid <- is.finite(longitude) & is.finite(latitude)
+        observed_at <- if ("data_hora_gmt" %in% names(fires)) {
+          as.numeric(suppressWarnings(as.POSIXct(as.character(fires$data_hora_gmt), tz = "UTC")))
+        } else rep(NA_real_, nrow(fires))
+        valid <- is.finite(longitude) & is.finite(latitude) & is.finite(observed_at)
         longitude <- longitude[valid]
         latitude <- latitude[valid]
+        observed_at <- observed_at[valid]
       }
       session$sendCustomMessage(
         "alertar:fire-data",
@@ -438,7 +452,9 @@ app_server <- function(store, glm_store = NULL) {
           layerId = "fires",
           active = isTRUE(isolate(input$show_fires)),
           lon = unname(longitude),
-          lat = unname(latitude)
+          lat = unname(latitude),
+          observedAt = unname(observed_at),
+          windowSeconds = fire_window_hours * 60 * 60
         )
       )
       invisible(TRUE)
@@ -628,6 +644,55 @@ app_server <- function(store, glm_store = NULL) {
               flashes = data.frame(), latest = as.POSIXct(NA), updated = Sys.time(),
               error = conditionMessage(error)
             ))
+          }
+          invisible(NULL)
+        }
+      )
+    })
+
+    fire_refresh_interval <- if (is.null(fire_store)) 10 * 60 else fire_store$refresh_seconds
+    fire_refresh <- reactiveTimer(fire_refresh_interval * 1000, session)
+    observe({
+      fire_refresh()
+      totem_live_refresh_trigger()
+      req(map_ready())
+      active <- isTRUE(input$show_fires)
+      fire_request_sequence <<- fire_request_sequence + 1L
+      request_sequence <- fire_request_sequence
+      if (!active || is.null(fire_store)) {
+        fires_loading(FALSE)
+        send_fire_update()
+        return()
+      }
+
+      fires_loading(TRUE)
+      promise <- fire_store$refresh_async()
+      promises::then(
+        promise,
+        onFulfilled = function(snapshot) {
+          if (session$isClosed() || request_sequence != fire_request_sequence) {
+            return(invisible(NULL))
+          }
+          fires_loading(FALSE)
+          fires_snapshot(snapshot)
+          send_fire_update(snapshot$fires)
+          invisible(NULL)
+        },
+        onRejected = function(error) {
+          if (!session$isClosed() && request_sequence == fire_request_sequence) {
+            fires_loading(FALSE)
+            snapshot <- isolate(fires_snapshot())
+            if (is.null(snapshot)) {
+              snapshot <- list(
+                fires = store$fires(), latest = as.POSIXct(NA), updated = Sys.time(),
+                error = conditionMessage(error), source = "cache"
+              )
+            } else {
+              snapshot$error <- conditionMessage(error)
+              snapshot$updated <- Sys.time()
+            }
+            fires_snapshot(snapshot)
+            send_fire_update(snapshot$fires)
           }
           invisible(NULL)
         }
@@ -1326,6 +1391,47 @@ app_server <- function(store, glm_store = NULL) {
     })
     outputOptions(output, "lightning_status", suspendWhenHidden = FALSE)
 
+    output$fire_status <- renderUI({
+      language <- current_language()
+      timezone <- current_timezone()
+      snapshot <- fires_snapshot()
+      if (isTRUE(fires_loading()) || is.null(snapshot)) {
+        return(div(
+          class = "lightning-status is-loading", role = "status", `aria-live` = "polite",
+          span(class = "lightning-loading-spinner", `aria-hidden` = "true"),
+          span(tr(language, "fire_loading"))
+        ))
+      }
+      fires <- snapshot$fires
+      if ((is.null(fires) || !nrow(fires)) && !is.null(snapshot$error)) {
+        return(div(class = "lightning-status is-error", tr(language, "fire_unavailable")))
+      }
+      format_time <- function(value) {
+        if (!length(value) || is.na(value)) return("—")
+        format(
+          in_timezone(value, timezone),
+          if (language == "en") "%Y-%m-%d · %H:%M:%S" else "%d/%m/%Y · %H:%M:%S",
+          tz = timezone
+        )
+      }
+      latest_label <- format_time(snapshot$latest)
+      updated_label <- format_time(snapshot$updated)
+      div(
+        class = "lightning-status", role = "status", `aria-live` = "polite",
+        span(class = "lightning-live-dot", `aria-hidden` = "true"),
+        div(
+          tags$strong(tr(language, "fire_count", if (is.null(fires)) 0L else nrow(fires))),
+          tags$small(tr(language, "fire_latest", latest_label, timezone_code(timezone))),
+          tags$small(tr(language, "fire_checked", updated_label)),
+          if (!is.null(snapshot$error)) tags$small(
+            class = "fire-cache-warning", tr(language, "fire_cached")
+          ),
+          tags$small("INPE · Programa Queimadas · multissatélite")
+        )
+      )
+    })
+    outputOptions(output, "fire_status", suspendWhenHidden = FALSE)
+
     observeEvent(input$totem_mode, {
       active <- isTRUE(input$totem_mode)
       was_active <- isTRUE(isolate(totem_active()))
@@ -1335,14 +1441,6 @@ app_server <- function(store, glm_store = NULL) {
         playing_before_totem(isolate(playing()))
         totem_active(TRUE)
         totem_last_refresh(Sys.time())
-        tryCatch(
-          store$refresh_fires(force = TRUE),
-          error = function(error) warning(
-            "Falha na atualização dos focos de calor do modo totem: ",
-            conditionMessage(error)
-          )
-        )
-        send_fire_update()
         totem_live_refresh_trigger(isolate(totem_live_refresh_trigger()) + 1L)
         cancel_totem_cycle()
         animation_restarting(FALSE)
@@ -1480,22 +1578,10 @@ app_server <- function(store, glm_store = NULL) {
     live_refresh_timer <- reactiveTimer(totem_live_refresh_minutes * 60 * 1000, session)
     observe({
       live_refresh_timer()
-
-      fires_changed <- tryCatch(
-        store$refresh_fires(),
-        error = function(error) {
-          warning(
-            "Falha na atualização periódica dos focos de calor: ",
-            conditionMessage(error)
-          )
-          FALSE
-        }
-      )
-      if (isTRUE(fires_changed)) send_fire_update()
       if (!isTRUE(isolate(totem_active()))) return()
 
       # Reativa os observadores das fontes quase em tempo real. Cada fonte
-      # preserva sua própria janela de cache (GLM, GOES e GPM IMERG).
+      # preserva sua própria janela de cache (GLM, BDQueimadas, GOES e GPM IMERG).
       totem_live_refresh_trigger(isolate(totem_live_refresh_trigger()) + 1L)
     })
 
