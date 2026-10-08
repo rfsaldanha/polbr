@@ -1,3 +1,13 @@
+# runApp() can be called from an existing R session. Read user settings even
+# when a project .Renviron masks them at R startup; app settings take precedence.
+local({
+  user_env_file <- Sys.getenv("R_ENVIRON_USER")
+  if (!nzchar(user_env_file)) user_env_file <- "~/.Renviron"
+  for (env_file in unique(c(path.expand(user_env_file), ".Renviron"))) {
+    if (file.exists(env_file)) readRenviron(env_file)
+  }
+})
+
 # Packages
 library(shiny)
 library(shinyWidgets)
@@ -18,9 +28,30 @@ library(DT)
 library(readr)
 options(DT.options = list(pageLength = 5, dom = 'ftp'))
 
+# FioAres observations use independent, read-only PostgreSQL connections.
+fioares_packages <- c("RPostgres", "plotly", "jsonlite", "cachem", "digest",
+                      "promises", "future", "parallelly")
+missing_packages <- fioares_packages[
+  !vapply(fioares_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+if (length(missing_packages)) {
+  stop("Pacotes ausentes: ", paste(missing_packages, collapse = ", "),
+       ". Consulte o README para instalar as dependências.")
+}
+source("R/fioares.R", local = TRUE)
+source("R/fioares_ui.R", local = TRUE)
+async_workers <- suppressWarnings(as.integer(Sys.getenv("ALERTAR_ASYNC_WORKERS", "2")))
+if (length(async_workers) != 1L || !is.finite(async_workers) || async_workers < 1L) async_workers <- 2L
+# I(1) keeps a single worker in a separate process instead of falling back to sequential.
+future::plan(future::multisession, workers = I(min(async_workers, parallelly::availableCores(), 4L)))
+fioares_store <- create_fioares_store()
+onStop(function() {
+  fioares_store$close()
+  future::plan(future::sequential)
+})
+
 # Data dir
-data_dir <- path("/dados/home/rfsaldanha/camsdata/forecast_data/")
-# data_dir <- path("../camsdata/forecast_data/")
+data_dir <- path(Sys.getenv("POLBR_DATA_DIR", "/dados/home/rfsaldanha/camsdata/forecast_data/"))
 
 # Database connection
 con <- dbConnect(
@@ -309,7 +340,11 @@ pal_prec <- colorBin(
 
 # Interface
 ui <- page_navbar(
-  tags$head(includeHTML("google-analytics.html")),
+  tags$head(
+    includeHTML("google-analytics.html"),
+    tags$link(rel = "stylesheet", href = "fioares.css"),
+    tags$script(src = "fioares.js")
+  ),
 
   title = "AlertAr Saúde",
   theme = bs_theme(bootswatch = "shiny"),
@@ -373,6 +408,11 @@ ui <- page_navbar(
       options = list(`live-search` = TRUE)
     ),
     uiOutput(outputId = "municipality_ui"),
+    div(
+      class = "fioares-layer-option",
+      checkboxInput("show_fioares", "Estações FioAres", value = TRUE),
+      conditionalPanel(condition = "input.show_fioares === true", uiOutput("fioares_status"))
+    ),
     sliderInput(
       inputId = "forecast",
       label = "Previsão (horas)",
@@ -1126,6 +1166,9 @@ ui <- page_navbar(
         ),
         p(
           "Os gráficos apresentados no painel representam a média espacial dos pixels de estimativas que intersectam o território de cada município."
+        ),
+        p(
+          "A camada Estações FioAres apresenta observações da rede FioAres/Fiocruz. As cores dos ícones indicam o IQAr observado da estação, independentemente do horizonte de previsão. Clique na estação para consultar as médias horárias e móveis de 24 horas de PM2.5; valores inválidos ou ausentes permanecem como lacunas."
         )
       ),
       accordion_panel(
@@ -1167,6 +1210,8 @@ validate_map_values <- function(mm, pollutant) {
 
 # Server
 server <- function(input, output, session) {
+  fioares_server(fioares_store, input, output, session)
+
   output$municipality_ui <- renderUI({
     req(input$uf)
 
@@ -1224,6 +1269,7 @@ server <- function(input, output, session) {
     depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -1442,6 +1488,7 @@ server <- function(input, output, session) {
     depth <- input$forecast + 1
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -1639,6 +1686,7 @@ server <- function(input, output, session) {
     depth <- input$forecast + 1
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -1836,6 +1884,7 @@ server <- function(input, output, session) {
     depth <- input$forecast + 1
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -2013,6 +2062,7 @@ server <- function(input, output, session) {
     depth <- input$forecast + 1
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -2218,6 +2268,7 @@ server <- function(input, output, session) {
     depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -2407,6 +2458,7 @@ server <- function(input, output, session) {
     depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -2596,6 +2648,7 @@ server <- function(input, output, session) {
     depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -2785,6 +2838,7 @@ server <- function(input, output, session) {
     depth <- (input$forecast + 1 + 2) / 3
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -2973,6 +3027,7 @@ server <- function(input, output, session) {
     depth <- input$forecast + 1
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,
@@ -3168,6 +3223,7 @@ server <- function(input, output, session) {
     depth <- input$forecast + 1
 
     leaflet() |>
+      fioares_map() |>
       addTiles(group = "Open Street Maps") |>
       addProviderTiles(
         providers$Esri.WorldImagery,

@@ -52,3 +52,14 @@ rsconnect/
 *.duckdb
 *.nc
 prompt.txt
+
+# Local FioAres connection credentials
+.Renviron.*
+!.Renviron.example
+.env
+.env.*
+.pgpass
+.pgpass.*
+*.pgpass
+.pg_service.conf
+.pg_service.conf.*
