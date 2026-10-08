@@ -11,11 +11,50 @@ fioares_translations <- list(
     empty = "Não há medições válidas de PM2.5 neste período.", period = "Datas no fuso %s · até %s dias por consulta.",
     gaps = "Somente medições válidas na fonte. Lacunas e valores invalidados não são interpolados. A média de 24 h segue a validação do FioAres.",
     observed = "Condições observadas", history_note = "O IQAr resume os poluentes disponíveis; o gráfico abaixo mostra exclusivamente PM2.5.",
-    available = "Histórico disponível: %s a %s", close = "Fechar")
+    available = "Histórico disponível: %s a %s", close = "Fechar"),
+  en = c(retry = "Try again", layer = "FioAres stations", title = "PM2.5 history", start = "Start date", end = "End date",
+    good = "Good", moderate = "Moderate", bad = "Poor", very_bad = "Very poor", extreme = "Extremely poor",
+    unknown = "No current index", stale = "No recent update", no_index = "IQAr unavailable at this hour",
+    no_data = "No readings", inactive = "Station not operating", unavailable = "FioAres data unavailable. We will retry at the next update.",
+    unconfigured = "FioAres connection is not configured yet.", loading = "Loading FioAres…",
+    count = "%s stations · %s with recent IQAr", note = "Colors: observed station IQAr. Grey: no valid index in the last %s h. Click to view PM2.5.",
+    latest = "Latest reading", index = "Station IQAr", parameter = "Dominant pollutant",
+    hourly = "PM2.5 · hourly mean", rolling = "PM2.5 · 24 h rolling mean", credit = "Data: FioAres/Fiocruz",
+    dates = "Choose valid dates, with the start on or before the end.", range = "Select up to %s days per query.",
+    empty = "No valid PM2.5 readings in this period.", period = "Dates in %s · up to %s days per query.",
+    gaps = "Only readings validated by the source. Gaps and invalid values are not interpolated. The 24 h mean follows FioAres validation.",
+    observed = "Observed conditions", history_note = "IQAr summarizes available pollutants; this chart shows PM2.5 only.",
+    available = "Available history: %s to %s", close = "Close"),
+  es = c(retry = "Reintentar", layer = "Estaciones FioAres", title = "Historial de PM2.5", start = "Fecha de inicio", end = "Fecha de fin",
+    good = "Buena", moderate = "Moderada", bad = "Mala", very_bad = "Muy mala", extreme = "Pésima",
+    unknown = "Sin índice actual", stale = "Sin actualización reciente", no_index = "IQAr no disponible en esta hora",
+    no_data = "Sin mediciones", inactive = "Estación fuera de servicio", unavailable = "Datos FioAres no disponibles. Se volverá a intentar en la próxima actualización.",
+    unconfigured = "Conexión con FioAres aún no configurada.", loading = "Consultando FioAres…",
+    count = "%s estaciones · %s con IQAr reciente", note = "Colores: IQAr observado de la estación. Gris: sin índice válido en las últimas %s h. Pulse para consultar PM2.5.",
+    latest = "Última medición", index = "IQAr de la estación", parameter = "Contaminante determinante",
+    hourly = "PM2.5 · media horaria", rolling = "PM2.5 · media móvil de 24 h", credit = "Datos: FioAres/Fiocruz",
+    dates = "Seleccione fechas válidas, con inicio anterior o igual al fin.", range = "Seleccione hasta %s días por consulta.",
+    empty = "No hay mediciones válidas de PM2.5 en este período.", period = "Fechas en %s · hasta %s días por consulta.",
+    gaps = "Solo mediciones válidas en la fuente. No se interpolan vacíos ni valores invalidados. La media de 24 h sigue la validación de FioAres.",
+    observed = "Condiciones observadas", history_note = "El IQAr resume los contaminantes disponibles; este gráfico muestra solo PM2.5.",
+    available = "Historial disponible: %s a %s", close = "Cerrar"),
+  fr = c(retry = "Réessayer", layer = "Stations FioAres", title = "Historique de PM2.5", start = "Date de début", end = "Date de fin",
+    good = "Bonne", moderate = "Modérée", bad = "Mauvaise", very_bad = "Très mauvaise", extreme = "Extrêmement mauvaise",
+    unknown = "Aucun indice actuel", stale = "Aucune mise à jour récente", no_index = "IQAr indisponible à cette heure",
+    no_data = "Aucune mesure", inactive = "Station hors service", unavailable = "Données FioAres indisponibles. Nouvelle tentative à la prochaine mise à jour.",
+    unconfigured = "Connexion FioAres non configurée.", loading = "Chargement de FioAres…",
+    count = "%s stations · %s avec un IQAr récent", note = "Couleurs : IQAr observé de la station. Gris : aucun indice valide depuis %s h. Cliquez pour consulter PM2.5.",
+    latest = "Dernière mesure", index = "IQAr de la station", parameter = "Polluant déterminant",
+    hourly = "PM2.5 · moyenne horaire", rolling = "PM2.5 · moyenne mobile de 24 h", credit = "Données : FioAres/Fiocruz",
+    dates = "Choisissez des dates valides, avec un début antérieur ou égal à la fin.", range = "Sélectionnez jusqu’à %s jours par requête.",
+    empty = "Aucune mesure valide de PM2.5 sur cette période.", period = "Dates dans le fuseau %s · jusqu’à %s jours par requête.",
+    gaps = "Uniquement les mesures validées à la source. Aucune interpolation des lacunes ou valeurs invalidées. La moyenne de 24 h suit la validation de FioAres.",
+    observed = "Conditions observées", history_note = "L’IQAr résume les polluants disponibles ; ce graphique montre uniquement PM2.5.",
+    available = "Historique disponible : %s à %s", close = "Fermer")
 )
 
 fioares_text <- function(language, key, ...) {
-  value <- fioares_translations$pt[[key]]
+  value <- fioares_translations[[normalize_language(language)]][[key]]
   if (length(list(...))) sprintf(value, ...) else value
 }
 
@@ -31,22 +70,22 @@ fioares_plot <- function(data, station, language, timezone) {
   plotly::plot_ly() |>
     plotly::add_trace(x = time, y = data$value, type = "scatter", mode = "lines+markers",
       name = fioares_text(language, "hourly"), connectgaps = FALSE,
-      line = list(color = "#087f6d", width = 2), marker = list(size = 3),
+      line = list(color = "#35d4b4", width = 2), marker = list(size = 3),
       text = label, hovertemplate = paste0("%{text} · ", timezone, "<br>PM2.5: %{y:.1f} µg/m³<extra></extra>")) |>
     plotly::add_trace(x = time, y = data$rolling, type = "scatter", mode = "lines",
       name = fioares_text(language, "rolling"), connectgaps = FALSE,
-      line = list(color = "#a36400", width = 2, dash = "dash"),
+      line = list(color = "#ffd166", width = 2, dash = "dash"),
       text = label, hovertemplate = paste0("%{text} · ", timezone, "<br>24 h: %{y:.1f} µg/m³<extra></extra>")) |>
     plotly::layout(
       title = list(text = paste0("PM2.5 · ", htmltools::htmlEscape(station$city[[1]])), x = .02, font = list(size = 17)),
-      paper_bgcolor = "#ffffff", plot_bgcolor = "#ffffff", font = list(color = "#343a40"),
+      paper_bgcolor = "#091720", plot_bgcolor = "#091720", font = list(color = "#cbd9df"),
       margin = list(l = 65, r = 20, t = 85, b = 105), hovermode = "x unified",
-      xaxis = list(type = "date", title = list(text = timezone), gridcolor = "#e9ecef"),
-      yaxis = list(title = list(text = "PM2.5 (µg/m³)"), rangemode = "tozero", gridcolor = "#e9ecef"),
+      xaxis = list(type = "date", title = list(text = timezone), gridcolor = "#22343e"),
+      yaxis = list(title = list(text = "PM2.5 (µg/m³)"), rangemode = "tozero", gridcolor = "#22343e"),
       legend = list(orientation = "h", x = 0, y = 1.14, font = list(size = 11)),
       annotations = list(list(text = paste0("<b>", fioares_text(language, "credit"), "</b>"),
         x = 1, y = -.28, xref = "paper", yref = "paper", xanchor = "right", yanchor = "top",
-        showarrow = FALSE, font = list(size = 13, color = "#343a40")))) |>
+        showarrow = FALSE, font = list(size = 13, color = "#e4f0f5")))) |>
     plotly::config(displaylogo = FALSE, responsive = TRUE,
       toImageButtonOptions = list(format = "png", filename = paste0("fioares_pm25_", station$station_id[[1]])))
 }
@@ -78,14 +117,7 @@ fioares_modal <- function(station, language, timezone, max_days, plot_id = "fioa
     footer = modalButton(fioares_text(language, "close")), easyClose = TRUE, size = "l")
 }
 
-# Each Leaflet render registers its new map instance with the observation layer.
-fioares_map <- function(map) {
-  htmlwidgets::onRender(map, "function(el, x) { window.fioaresMaps.register(el.id, this); }")
-}
-
-fioares_server <- function(store, input, output, session) {
-  language <- reactive("pt")
-  timezone <- reactive("America/Sao_Paulo")
+fioares_server <- function(store, input, output, session, map_ready, language, timezone) {
   snapshot <- reactiveVal(store$snapshot())
   selected <- reactiveVal(NULL)
   modal_revision <- reactiveVal(0L)
@@ -112,6 +144,7 @@ fioares_server <- function(store, input, output, session) {
   })
   observeEvent(input$fioares_retry, refresh(force = TRUE), ignoreInit = TRUE)
   observe({
+    req(map_ready())
     x <- stations()
     lng <- language(); tz <- timezone()
     markers <- lapply(seq_len(nrow(x)), function(i) {
@@ -124,7 +157,8 @@ fioares_server <- function(store, input, output, session) {
       list(id = row$station_id, lon = row$lon, lat = row$lat, color = row$color,
            label = label, title = title, state = row$state)
     })
-    session$sendCustomMessage("alertar:fioares", list(inputId = session$ns("fioares_station_click"), active = isTRUE(input$show_fioares), stations = markers))
+    session$sendCustomMessage("alertar:fioares", list(mapId = session$ns("forecast_map"),
+      inputId = session$ns("fioares_station_click"), active = isTRUE(input$show_fioares), stations = markers))
   })
   observeEvent(language(), updateCheckboxInput(session, "show_fioares", label = fioares_text(language(), "layer")))
   output$fioares_status <- renderUI({

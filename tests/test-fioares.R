@@ -4,7 +4,7 @@ suppressPackageStartupMessages(library(testthat))
 # Use the same Renviron loading as app startup, without starting its stores.
 renviron_startup <- parse('app.R')[[1L]]
 eval(renviron_startup)
-for (module in c('fioares','fioares_ui')) source(paste0('R/',module,'.R'))
+for (module in c('config','i18n','fioares','fioares_ui','server')) source(paste0('R/',module,'.R'))
 
 
 test_that('startup merges personal and app Renviron with app precedence', {
@@ -92,12 +92,17 @@ test_that('date ranges are inclusive in the selected timezone and bounded', {
   expect_error(fioares_date_interval('2024-01-01','2026-01-01','UTC'),'range')
 })
 
+test_that('all user-facing messages are translated', {
+  for (language in c('en','es','fr')) expect_setequal(names(fioares_translations[[language]]),names(fioares_translations$pt))
+})
+
 test_that('an unconfigured connection leaves the layer available with an explicit message', {
   store <- create_fioares_store(list(configured=FALSE, refresh_seconds=300, stale_hours=3, max_days=31L))
   withr::defer(store$close())
   expect_identical(store$snapshot()$status, 'unconfigured')
   shiny::testServer(function(input, output, session) {
-    layer <- fioares_server(store, input, output, session)
+    layer <- fioares_server(store, input, output, session,
+      map_ready=reactive(FALSE), language=reactive('pt'), timezone=reactive('America/Sao_Paulo'))
   }, {
     session$setInputs(show_fioares=TRUE)
     session$flushReact()

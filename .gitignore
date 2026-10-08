@@ -51,9 +51,11 @@ rsconnect/
 # Ignore data files
 *.duckdb
 *.nc
+/data/
+.DS_Store
 prompt.txt
 
-# Local FioAres connection credentials
+# Local FioAres credentials
 .Renviron.*
 !.Renviron.example
 .env

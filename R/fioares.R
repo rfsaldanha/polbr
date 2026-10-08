@@ -119,7 +119,7 @@ fioares_date_interval <- function(start, end, timezone, max_days = 31L) {
   dates <- tryCatch(as.Date(c(as.character(start), as.character(end))), error = function(e) as.Date(NA))
   if (length(dates) != 2L || anyNA(dates) || dates[[2]] < dates[[1]]) stop("dates")
   if (as.integer(dates[[2]] - dates[[1]]) + 1L > max_days) stop("range")
-  if (length(timezone) != 1L || is.na(timezone) || !timezone %in% OlsonNames()) stop("timezone")
+  timezone <- normalize_timezone(timezone)
   # The end date is inclusive in the chosen display timezone, including DST.
   bounds <- as.POSIXct(paste(c(dates[[1]], dates[[2]] + 1L), "00:00:00"), tz = timezone)
   if (anyNA(bounds)) stop("dates")
