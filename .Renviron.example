@@ -1,0 +1,15 @@
+# Defina em ~/.Renviron ou copie para .Renviron na pasta do app.
+# O app lê ambos ao iniciar; as chaves do projeto têm precedência.
+# Não versione o .Renviron nem compartilhe sua senha.
+FIOARES_PGHOST=psql.icict.fiocruz.br
+FIOARES_PGPORT=5432
+FIOARES_PGDATABASE=estacoes_fioares
+FIOARES_PGUSER=arapi_reader
+# Preencha a senha apenas no arquivo .Renviron local, nunca neste modelo.
+FIOARES_PGPASSWORD=
+FIOARES_PGSSLMODE=require
+FIOARES_REFRESH_SECONDS=300
+FIOARES_STALE_HOURS=3
+# Alternativas à senha neste arquivo (não necessárias no modo acima):
+# FIOARES_PGPASSFILE=/caminho/seguro/fioares.pgpass
+# FIOARES_PGSERVICE=fioares

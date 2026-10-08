@@ -478,3 +478,23 @@ body > .weather-layer-dropdown .selectize-dropdown-content { max-height: min(280
   .timeline-panel { bottom: 10px; }
   .timeline-title { display: none; }
 }
+
+/* Observed FioAres stations and historical PM2.5. */
+.fioares-marker { z-index: 4; }
+.fioares-marker-button { display: grid; place-items: center; width: 24px; height: 24px; padding: 2px; color: #071018; background: var(--station-color, #94a3b8); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 1px 6px #0009; cursor: pointer; transition: scale .15s; }
+.fioares-marker-button:hover, .fioares-marker-button:focus-visible { scale: 1.12; outline: 2px solid #ffffff80; outline-offset: 2px; }
+.fioares-marker-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.fioares-marker-button[data-state="stale"], .fioares-marker-button[data-state="unavailable"] { border-style: dashed; }
+.is-distance-measuring .fioares-marker-button { cursor: crosshair; }
+.fioares-layer-option p { margin: 7px 0; font-size: 10px; color: var(--muted); }
+.fioares-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; margin: 8px 0; font-size: 10px; }
+.fioares-legend > span, .fioares-current { display: flex; align-items: center; gap: 7px; }
+.fioares-legend-dot { display: inline-block; flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; }
+.fioares-date-controls { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
+.fioares-date-controls > .shiny-input-container { flex: 1 1 180px; min-width: 0; margin-bottom: 6px; }
+.fioares-current { flex-wrap: wrap; margin-bottom: 8px; }
+.fioares-current > span:last-child { font-size: 12px; color: var(--muted); }
+.fioares-history .layer-group-note { font-size: 12px; line-height: 1.5; }
+.fioares-history-message { padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: #ffd166; }
+.fioares-credit { color: #e4f0f5; font-weight: 700; text-align: right; margin: 8px 0; }
+.fioares-station-name { margin-bottom: 12px; }

@@ -199,7 +199,7 @@ rank_report_units <- function(data, categories, language) {
   data
 }
 
-app_server <- function(store, glm_store = NULL, fire_store = NULL) {
+app_server <- function(store, glm_store = NULL, fire_store = NULL, fioares_store = NULL) {
   force(store)
   function(input, output, session) {
     catalog <- store$catalog
@@ -267,6 +267,9 @@ app_server <- function(store, glm_store = NULL, fire_store = NULL) {
     }
     default_territory <- if ("330455" %in% territories$territory_id) "330455" else territories$territory_id[[1]]
     map_ready <- reactiveVal(FALSE)
+    if (!is.null(fioares_store)) {
+      fioares_server(fioares_store, input, output, session, map_ready, current_language, current_timezone)
+    }
     displayed_horizon <- reactiveVal(12)
     pending_raster <- reactiveVal(NULL)
     lightning_snapshot <- reactiveVal(NULL)
@@ -1542,24 +1545,20 @@ app_server <- function(store, glm_store = NULL, fire_store = NULL) {
       updateSliderInput(session, "horizon", value = next_horizon[[1]])
     })
 
+    # O processo do aplicativo permanece ativo no Shiny Server. Verifique o
+    # marcador transacional publicado pelo pipeline e troque o store em uso sem
+    # encerrar as sessões (inclusive fora do modo totem).
     refresh_timer <- reactiveTimer(60 * 1000, session)
     observe({
       refresh_timer()
-      if (!isTRUE(isolate(totem_active()))) return()
-
-      now <- Sys.time()
-      hours_since_refresh <- as.numeric(difftime(
-        now, isolate(totem_last_refresh()), units = "hours"
-      ))
-      if (!is.finite(hours_since_refresh) || hours_since_refresh < totem_refresh_hours) return()
 
       refreshed <- tryCatch(store$refresh(), error = function(error) {
-        warning("Falha na atualização do modo totem: ", conditionMessage(error))
+        warning("Falha na atualização da base de dados: ", conditionMessage(error))
         FALSE
       })
       if (!isTRUE(refreshed)) return()
 
-      totem_last_refresh(now)
+      totem_last_refresh(Sys.time())
       frame_pending(FALSE)
       id <- isolate(input$indicator %||% store$default_indicator)
       horizons <- store$forecast_horizons(id)

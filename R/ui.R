@@ -672,6 +672,7 @@ app_ui <- function(store) {
       tags$link(rel = "preconnect", href = "https://basemaps.cartocdn.com"),
       tags$link(rel = "stylesheet", href = "styles.css"),
       tags$script(src = "app.js", defer = "defer"),
+      tags$script(src = "fioares.js", defer = "defer"),
       tags$script(src = "report.js", defer = "defer"),
       if (file.exists("google-analytics.html")) includeHTML("google-analytics.html")
     ),
@@ -819,6 +820,12 @@ app_ui <- function(store) {
           div(
             class = "layer-group-body",
             p(id = "label-recent-note", class = "layer-group-note", tr("pt", "recent_section_note")),
+            div(
+              class = "layer-option fioares-layer-option",
+              checkboxInput("show_fioares", "Estações FioAres", value = TRUE),
+              div(class = "layer-option-meta", span("FioAres/Fiocruz")),
+              conditionalPanel(condition = "input.show_fioares === true", uiOutput("fioares_status"))
+            ),
             div(
               class = "weather-layer-control recent-layer-options",
               div(

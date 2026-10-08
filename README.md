@@ -6,7 +6,7 @@ Painel Shiny/WebGL para explorar a previsao atmosferica do CAMS no Brasil. A int
 
 ```r
 install.packages(c(
-  "shiny", "bslib", "mapgl", "terra", "sf", "DBI", "duckdb",
+  "shiny", "bslib", "mapgl", "terra", "sf", "DBI", "duckdb", "RPostgres", "plotly", "digest",
   "jsonlite", "png", "cachem", "curl", "ncdf4", "promises", "future",
   "parallelly"
 ))
@@ -101,3 +101,55 @@ autocontido, mantendo essas interações.
 - `www/app.js`: partículas de vento e pulsos GLM sincronizados ao mapa.
 - `www/report.js`: interatividade das tabelas e escalas dos relatorios.
 - `www/styles.css`: identidade visual escura.
+
+## Estações FioAres
+
+A camada **Estações FioAres**, em observações recentes, apresenta o cadastro confirmado do banco `estacoes_fioares` do ICICT. As coordenadas SIRGAS2000 são transformadas para WGS84 na exibição. Nenhuma estação ou medição é criada pelo painel.
+
+As cores representam o **IQAr observado da estação**, já calculado pelo projeto `arapi` e armazenado em `station_iqar`: boa (verde), moderada (amarelo), ruim (laranja), muito ruim (vermelho) e péssima (roxo). A correspondência usa as [faixas do IQAr apresentadas pelo MMA](https://conama.mma.gov.br/index.php?id=27171&option=com_sisconama&task=documento.download). O índice pode ser determinado por outro poluente além de PM2.5; o poluente determinante aparece junto ao índice. As cores independem do horizonte de previsão CAMS.
+
+O índice deve corresponder ao horário mais recente de observação de poluentes da estação e ter no máximo três horas. Estações sem índice válido nesse horário, com observações antigas, fora de operação ou cuja consulta falhou ficam cinza, com o motivo explícito. A camada é consultada a cada cinco minutos; a idade das observações é reavaliada a cada minuto. Em falhas, o último cadastro permanece visível em cinza.
+
+Clique no ícone da estação para abrir o histórico de **PM2.5 (µg/m³)**. O gráfico mostra médias horárias e médias móveis de 24 horas lidas de `quality`, parâmetro `MP2,5`, respeitando separadamente `valid` e `rolling_valid`. Valores inválidos e horas ausentes permanecem como lacunas. Não há interpolação, imputação nem nova conversão de unidades.
+
+Os controles de início e fim incluem ambos os dias no fuso escolhido no painel. Cada consulta admite até 31 dias. Ao abrir uma estação, o período inicial abrange os últimos sete dias do seu histórico disponível. O crédito **“FioAres/Fiocruz”** aparece dentro do gráfico, inclusive na exportação PNG do Plotly, e abaixo dele.
+
+### Conexão ao ICICT
+
+O consumidor usa o esquema 3 do `arapi`: `public.stations`, `public.quality`, `public.station_iqar`, `public.meta` e `public.dirty`. Cada consulta abre uma conexão PostgreSQL com transação `REPEATABLE READ, READ ONLY`, verifica a publicação e fecha a conexão. Publicação ausente, processamento pendente ou revisões em `dirty` tornam a consulta indisponível. Consultas usam parâmetros SQL e timeouts; as requisições são assíncronas e o cache é limitado e invalidado quando muda a publicação.
+
+Configure usuário e senha no arquivo `~/.Renviron` ou no `.Renviron` **na pasta da aplicação**, seguindo [.Renviron.example](.Renviron.example):
+
+```dotenv
+FIOARES_PGUSER=arapi_reader
+FIOARES_PGPASSWORD=
+```
+
+Preencha a senha entre aspas somente no seu `.Renviron` local. O campo está vazio no exemplo de propósito; não coloque credenciais reais no modelo versionado.
+
+O host e o banco têm os padrões indicados na tabela abaixo. Ao iniciar, o aplicativo lê primeiro `~/.Renviron` (ou o arquivo indicado por `R_ENVIRON_USER`) e depois o `.Renviron` da aplicação, cujas chaves têm precedência. Isso também ocorre quando `shiny::runApp()` é chamado de uma sessão R já aberta ou pelo Shiny Server. Pare e inicie novamente a aplicação depois de editar esse arquivo. No servidor, crie o `.Renviron` na pasta da implantação `alertarsaude`, legível pelo usuário que executa o Shiny; ele não é enviado pelo Git e não recebe o conteúdo do seu `~/.Renviron` local.
+
+Use um usuário com permissão de leitura e restrinja o acesso ao arquivo de configuração. Quando há configuração `FIOARES_PG*`, a conexão usa apenas essas variáveis e os padrões abaixo, sem herdar host ou senha de outra conexão `PG*` da sessão R. As variáveis padrão `PG*` são usadas apenas se não houver configuração específica FioAres. `FIOARES_PGPASSFILE` e `FIOARES_PGSERVICE` continuam disponíveis como alternativas; não são necessários quando usuário e senha estão no `.Renviron`. O Git ignora os arquivos locais `.Renviron`, `.env`, `.pgpass` e `.pg_service.conf`, suas variantes cobertas pelo `.gitignore` e os arquivos de sessão `.Rhistory`, `.RData` e `.Ruserdata`. Mantenha arquivos de credenciais com outros nomes fora do repositório. Em Linux/macOS, restrinja a leitura dos arquivos usados com `chmod 600 .Renviron .pgpass`.
+
+Se uma consulta falhar, o console R/log do aplicativo registra o diagnóstico, com senhas removidas. O aviso no mapa permite tentar novamente sem aguardar o intervalo normal de atualização.
+
+| Variável | Padrão | Finalidade |
+|---|---|---|
+| `FIOARES_PGHOST` | `psql.icict.fiocruz.br` | Servidor PostgreSQL |
+| `FIOARES_PGPORT` | `5432` | Porta |
+| `FIOARES_PGDATABASE` | `estacoes_fioares` | Banco |
+| `FIOARES_PGUSER` | — | Usuário com acesso de leitura |
+| `FIOARES_PGPASSWORD` | — | Senha do usuário, definida no `.Renviron` |
+| `FIOARES_PGPASSFILE` | padrão do libpq | Caminho do arquivo de senha |
+| `FIOARES_PGSSLMODE` | `require` | Modo SSL; pode usar `verify-full` com CA configurada |
+| `FIOARES_PGSERVICE` | — | Perfil libpq; quando definido, resolve a conexão pelo perfil |
+| `FIOARES_REFRESH_SECONDS` | `300` | Intervalo entre consultas, mínimo 30 segundos |
+| `FIOARES_STALE_HOURS` | `3` | Idade máxima do IQAr para colorir o ícone, mínimo 1 hora |
+
+Sem uma conexão configurada, o painel informa a indisponibilidade da camada FioAres e mantém as demais funções disponíveis.
+
+## Publicação FioAres (08/10/2026)
+
+A versão de produção fica em `nxctic009:/dados/htdocs/shiny.icict.fiocruz.br/alertarsaude`, disponível em <https://shiny.icict.fiocruz.br/alertarsaude/>. Esta integração parte da branch `dev` e conserva a correção de produção que verifica o ciclo CAMS a cada minuto, inclusive fora do modo totem.
+
+Antes da ativação, a versão foi testada como usuário `shiny` em uma porta privada do servidor, com `tests/test-fioares.R` e `tests/browser-fioares.R`. A configuração FioAres é mantida apenas no `.Renviron` do servidor. Para reiniciar somente este painel, use `touch restart.txt` na pasta da aplicação.
